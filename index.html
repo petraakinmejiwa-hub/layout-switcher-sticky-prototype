@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Layout switcher – compact prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Roboto:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0e11; --surface:#22222a; --surface-2:#18181e; --brand:#ffdb01; --on-brand:#000;
+    --text:#ffffff; --text-2:#dfdfe6; --muted:#8c8c99; --live:#17cf2f; --up:#2fb344; --down:#e0412c;
+    --line:rgba(255,255,255,.10); --chip:rgba(255,255,255,.10);
+    --appbar-h:96px; --nav-h:56px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:#050507;color:var(--text);font-family:Roboto,system-ui,sans-serif}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  .num,.small{font-family:Inter,Roboto,sans-serif}
+
+  /* phone shell: full-bleed on phones, framed on desktop */
+  .phone{position:relative;max-width:375px;margin:0 auto;min-height:100vh;background:var(--bg)}
+  @media (min-width:600px){
+    body{padding:24px 0}
+    .phone{min-height:auto;height:812px;border-radius:36px;overflow:hidden;box-shadow:0 0 0 10px #1b1b20,0 30px 80px rgba(0,0,0,.6)}
+    .scroller{height:100%;overflow-y:auto}
+  }
+  .scroller{scrollbar-width:none}
+  .scroller::-webkit-scrollbar{display:none}
+
+  /* app bar (sticky so league headers can stick directly beneath it) */
+  .appbar{position:sticky;top:0;z-index:30;background:var(--brand);color:#000;height:var(--appbar-h)}
+  .status{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font:600 14px Inter,sans-serif}
+  .bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+  .logo{font:800 22px/1 Inter,sans-serif;letter-spacing:.28em}
+  .bar .right{display:flex;gap:18px;align-items:center}
+  .wallet{display:flex;flex-direction:column;align-items:center;font:700 10px Inter,sans-serif}
+
+  main{padding:8px 0 calc(var(--nav-h) + 24px)}
+  .h-scroll{display:flex;gap:8px;overflow-x:auto;padding:0 8px 8px;scrollbar-width:none}
+  .h-scroll::-webkit-scrollbar{display:none}
+  .hero{flex:0 0 180px;height:100px;border-radius:8px;background:linear-gradient(135deg,#14332c,#0e1a20 55%,#3a2b00);position:relative;overflow:hidden}
+  .hero b{position:absolute;left:10px;top:8px;font:italic 800 13px/1.15 Inter,sans-serif;width:110px}
+  .hero span{position:absolute;left:0;right:0;bottom:0;background:#24242c;padding:6px 10px;font:600 11px Inter,sans-serif}
+  .ako{flex:0 0 320px;border-radius:8px;background:linear-gradient(180deg,#3a3420,#22222a 40%);border:1px solid #3a3a44;padding:10px 12px}
+  .ako .tag{display:inline-flex;gap:4px;border:1px solid var(--brand);color:var(--brand);border-radius:4px;padding:1px 6px;font:italic 700 10px Inter,sans-serif}
+  .ako .when{margin-left:8px;font:600 11px Inter,sans-serif;color:var(--text-2)}
+  .ako h4{margin:8px 0;font:700 12px Inter,sans-serif;text-transform:uppercase;letter-spacing:.02em}
+  .ako ul{margin:0;padding:8px 0 8px 14px;border-top:1px solid var(--line);font:500 12px/1.7 Inter,sans-serif;color:var(--text-2)}
+  .ako .price{margin-top:6px;height:36px;border-radius:6px;background:#2e2e36;display:grid;place-items:center;font:700 15px Roboto}
+
+  .section-head{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px}
+  .section-head h2{margin:0;font:600 16px Roboto}
+  .toggle{display:flex;align-items:center;gap:8px;font:500 12px Inter,sans-serif;color:var(--text-2)}
+  .switch{width:44px;height:24px;border-radius:12px;background:var(--brand);position:relative;transition:background .2s}
+  .switch::after{content:"";position:absolute;top:3px;left:23px;width:18px;height:18px;border-radius:50%;background:#000;transition:left .2s}
+  .switch[aria-checked="false"]{background:#5a5a66}
+  .switch[aria-checked="false"]::after{left:3px;background:#fff}
+
+  .chips{display:flex;gap:4px;overflow-x:auto;padding:4px 8px 8px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:14px;background:var(--chip);color:var(--text-2);font:600 12px Inter,sans-serif;border:1px solid transparent;white-space:nowrap}
+  .chip[aria-pressed="true"]{color:#fff;border-color:var(--brand)}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--live)}
+  .chip.live[aria-pressed="true"]{border-color:var(--live)}
+  .chip-sep{flex:0 0 1px;background:var(--line);margin:4px 4px}
+
+  /* odds table */
+  .table{margin:0 8px;border-radius:8px;background:var(--surface)}
+  .table .markets{padding:8px;border-radius:8px 8px 0 0}
+  .league{position:relative}
+  .league:last-of-type .more{border-radius:0 0 8px 8px}
+  .lh{position:sticky;top:var(--appbar-h);z-index:10;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;background:var(--surface-2);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+  .lh .name{flex:1;min-width:0;font:600 14px Roboto;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lh .labels{display:flex;width:var(--odds-w);font:600 12px Inter,sans-serif;color:var(--text-2)}
+  .lh .labels span{flex:1;text-align:center}
+  .lh .pin{width:36px;display:grid;place-items:center;color:#6c6c78}
+  .lh .pin[aria-pressed="true"]{color:var(--brand)}
+
+  .row{display:flex;align-items:stretch;gap:8px;padding:0 0 0 12px;min-height:49px;position:relative}
+  .row::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:1px;background:var(--line)}
+  .ev{flex:1;min-width:0;display:flex;gap:8px;padding:6px 0}
+  .tcol{width:36px;flex:0 0 36px;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:1px}
+  .tcol svg{width:14px;height:14px;color:var(--text-2)}
+  .tcol .t{font:600 12px/22px Inter,sans-serif}
+  .tcol .t.live{color:var(--live)}
+  .teams{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+  .team{display:flex;align-items:center;gap:8px;font:600 14px/16px Roboto}
+  .team .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .team .s{font-weight:700;min-width:9px;text-align:right}
+  .team .serve{width:6px;height:6px;border-radius:50%;background:var(--brand)}
+  .team .s.sets{letter-spacing:.35em;font-size:12px;font-family:Inter}
+  .vdiv{width:1px;background:var(--line);margin:8px 0}
+  .odds{display:flex;width:var(--odds-w);flex:0 0 var(--odds-w)}
+  .odd{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:700 14px Roboto;position:relative;transition:background .12s}
+  .odd:active{background:rgba(255,255,255,.06)}
+  .odd[aria-pressed="true"]{background:var(--brand);color:var(--on-brand)}
+  .odd .prev{font:500 10px Inter;color:var(--muted);text-decoration:line-through}
+  .odd .arr{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent}
+  .odd .arr.up{border-bottom:8px solid var(--up);position:absolute;top:4px}
+  .odd .arr.down{border-top:8px solid var(--down);position:absolute;bottom:4px}
+  .odd.up-c .v{color:var(--up)} .odd.down-c .v{color:var(--down)}
+  .odd[aria-pressed="true"] .v{color:#000}
+  .odd.locked{color:var(--muted);cursor:default}
+  .meta{width:36px;flex:0 0 36px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:2px 0;margin-right:8px}
+  .star{width:24px;height:24px;display:grid;place-items:center;color:var(--text-2)}
+  .star[aria-pressed="true"]{color:var(--brand)}
+  .pill{background:var(--surface-2);border-radius:4px;padding:2px 4px;font:600 12px Inter,sans-serif;color:var(--text-2)}
+  .more{width:100%;height:32px;display:flex;align-items:center;justify-content:center;gap:4px;font:600 12px Inter,sans-serif;color:var(--text-2);background:var(--surface)}
+  .more svg{transition:transform .2s}
+  .more[aria-expanded="true"] svg{transform:rotate(180deg)}
+
+  /* card view (compact off) */
+  .cards{padding:0 8px;display:flex;flex-direction:column;gap:8px}
+  .card{background:var(--surface);border-radius:8px;padding:10px 12px}
+  .card .top{display:flex;justify-content:space-between;font:600 12px Inter,sans-serif;color:var(--text-2)}
+  .card .match{margin:8px 0;font:600 14px Roboto}
+  .card .btns{display:flex;gap:6px}
+  .card .btns .odd{height:40px;border-radius:6px;background:#2e2e36;flex-direction:row;gap:8px}
+  .card .btns .odd .lbl{font:600 12px Inter;color:var(--text-2)}
+  .card .btns .odd[aria-pressed="true"] .lbl{color:#000}
+
+  .empty{padding:32px 16px;text-align:center;color:var(--text-2);font:500 13px Inter,sans-serif}
+
+  /* bottom nav */
+  .nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:375px;height:var(--nav-h);background:var(--bg);border-top:1px solid var(--line);display:flex;z-index:40;padding-bottom:env(safe-area-inset-bottom)}
+  @media (min-width:600px){.nav{position:absolute}}
+  .nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:500 10px Inter,sans-serif;color:var(--text-2)}
+  .nav button[aria-current="page"]{color:var(--brand)}
+  .nav svg{width:22px;height:22px}
+
+  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 16px);transform:translate(-50%,20px);width:calc(100% - 32px);max-width:343px;background:var(--surface-2);border-radius:8px;padding:10px 12px;display:flex;gap:8px;align-items:center;font:500 13px Inter,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+  @media (min-width:600px){.toast{position:absolute}}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast svg{color:var(--brand);flex:0 0 auto}
+  .proto-note{max-width:375px;margin:12px auto 0;color:#6c6c78;font:500 11px Inter,sans-serif;text-align:center}
+  @media (max-width:599px){.proto-note{display:none}}
+</style>
+</head>
+<body>
+<div class="phone">
+ <div class="scroller" id="scroller">
+  <header class="appbar">
+    <div class="status"><span>9:41</span><span>●●● 100%</span></div>
+    <div class="bar">
+      <div class="logo">FORTUNA</div>
+      <div class="right">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <div class="wallet"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#000"/><circle cx="12" cy="9.5" r="3.5" fill="#ffdb01"/><path d="M5.5 19a7 7 0 0 1 13 0" fill="#ffdb01"/></svg>664 Kč</div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="h-scroll">
+      <div class="hero"><b>TITLE THAT FILL IN ALL OF THIS SPACE</b><span>+25% do wygranych</span></div>
+      <div class="hero"><b>TITLE THAT FILL IN ALL OF THIS SPACE</b><span>+25% do wygranych</span></div>
+      <div class="hero"><b>TITLE THAT FILL IN ALL OF THIS SPACE</b><span>+25% do wygranych</span></div>
+    </div>
+    <div class="h-scroll">
+      <div class="ako"><span class="tag">🔥 453 BETS</span><span class="when">STARTS IN 5H</span>
+        <h4>⚽ FC Barcelona — Real Madrid ›</h4>
+        <ul><li>Hugo Ekitike will score a goal</li><li>Mohamed Salah will have 1+ assists</li><li>Over 5.5 Liverpool corners</li></ul>
+        <button class="price odd" style="width:100%">1.30</button></div>
+      <div class="ako"><span class="tag">🔥 212 BETS</span><span class="when">STARTS IN 2H</span>
+        <h4>⚽ Inter — AC Milan ›</h4>
+        <ul><li>Lautaro Martínez to score</li><li>Both teams to score</li><li>Over 9.5 corners</li></ul>
+        <button class="price odd" style="width:100%">2.15</button></div>
+    </div>
+
+    <div class="section-head">
+      <h2>Upcoming Events</h2>
+      <div class="toggle">Compact <button class="switch" id="compact" role="switch" aria-checked="true" aria-label="Compact view"></button></div>
+    </div>
+    <div class="chips" id="sports"></div>
+    <div id="list"></div>
+  </main>
+ </div>
+
+  <nav class="nav" id="nav"></nav>
+  <div class="toast" id="toast" role="status"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z"/></svg><span id="toastText"></span></div>
+</div>
+<p class="proto-note">Design prototype · scroll the list: league name changes, 1 X 2 stays · tap odds, ☆, pins, chips</p>
+
+<script>
+const ICON={
+  stream:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/><path d="m10 8 4 2-4 2z" fill="currentColor"/></svg>',
+  star:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  starOn:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  pin:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z"/></svg>',
+  pinOn:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z"/></svg>',
+  lock:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  chev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 9 7 7 7-7"/></svg>'
+};
+
+// ---------- data ----------
+const M=(t1,t2,time,o,extra={})=>({t1,t2,time,o,...extra});
+const SPORTS={
+  football:{label:'Fotbal',icon:'⚽',markets:[
+      {id:'live',label:'Live',live:true},
+      {id:'mw',label:'Match Winner',cols:['1','X','2']},
+      {id:'btts',label:'Both Teams to Score',cols:['Yes','No']},
+      {id:'ou',label:'Over 2.5 Goals',cols:['Over 2.5']}],
+    leagues:[
+    {id:'pl',name:'England • Premier League',matches:[
+      M('Arsenal','Tottenham','45’',[1.85,3.40,4.20],{live:true,s:[1,0],more:87}),
+      M('Liverpool','West Ham','63’',[2.10,3.25,3.50],{live:true,s:[2,2],more:84,chg:[0,0,'up']}),
+      M('Chelsea','Man United','15:30',[1.95,3.50,3.90],{more:92}),
+      M('Newcastle','Aston Villa','18:00',[2.25,3.40,3.10],{more:88}),
+      M('Brighton','Everton','20:00',[1.80,3.60,4.40],{more:76})],total:6},
+    {id:'cl',name:'Europe • Champions League',matches:[
+      M('Real Madrid','Bayern München','15:30',[1.45,4.50,6.80],{more:92,chg:[0,'down',0]}),
+      M('Paris SG','Borussia Dortmund','18:00',[0,0,0],{more:90,locked:true}),
+      M('Man City','Inter','21:00',[1.70,3.90,4.80],{more:110}),
+      M('Barcelona','Benfica','21:00',[1.55,4.20,5.60],{more:104})],total:7},
+    {id:'sa',name:'Italy • Serie A',matches:[
+      M('Inter','AC Milan','14:00',[1.95,3.60,3.80],{more:121,chg:['up',0,0],prev:[1.80]}),
+      M('Napoli','Juventus','20:45',[2.60,3.30,2.70],{more:112,chg:[0,0,'down'],prev:[0,0,2.90]}),
+      M('AS Roma','Lazio','18:00',[2.40,3.20,3.00],{more:98}),
+      M('Atalanta','Fiorentina','15:00',[1.90,3.60,4.00],{more:87})],total:8},
+    {id:'ll',name:'Spain • LaLiga',matches:[
+      M('Real Betis','Sevilla','16:15',[2.05,3.40,3.60],{more:96}),
+      M('Villarreal','Valencia','18:30',[1.90,3.50,4.10],{more:88}),
+      M('Atlético Madrid','Girona','21:00',[1.60,3.90,5.40],{more:101})],total:5},
+    {id:'bl',name:'Germany • Bundesliga',matches:[
+      M('Bayern München','Dortmund','15:30',[1.55,4.40,5.20],{more:118}),
+      M('RB Leipzig','Leverkusen','17:30',[2.70,3.50,2.45],{more:104}),
+      M('Stuttgart','Frankfurt','15:30',[2.10,3.50,3.30],{more:90})],total:9}
+  ]},
+  tennis:{label:'Tenis',icon:'🎾',markets:[{id:'live',label:'Live',live:true},{id:'mw',label:'Match Winner',cols:['1','2']},{id:'set',label:'Set Betting',cols:['1','2']}],
+    leagues:[
+    {id:'atpr',name:'ATP • Rome, Italy • Singles',matches:[
+      M('J. Sinner','A. Zverev','Set 3',[1.36,3.10],{live:true,sets:['0 0 40','0 0 15'],serve:0,more:87,chg:['up',0]}),
+      M('F. Auger-Aliassime','D. Shapovalov','Set 2',[2.45,1.55],{live:true,sets:['1 3 30','0 4 15'],serve:0,more:84,chg:[0,'down']}),
+      M('C. Alcaraz','B. Shelton','15:30',[1.90,1.90],{more:92}),
+      M('D. Medvedev','H. Hurkacz','17:00',[1.70,2.15],{more:80})],total:6},
+    {id:'atpm',name:'ATP • Madrid, Spain • Singles',matches:[
+      M('M. Berrettini','T. Fritz','15:30',[1.75,2.05],{more:90}),
+      M('A. Davidovich Fokina','F. Tiafoe','12:00',[0,0],{locked:true,more:121}),
+      M('L. Musetti','A. Zverev','14:30',[1.62,2.30],{more:112})],total:7},
+    {id:'wta',name:'WTA • Rome, Italy • Singles',matches:[
+      M('I. Świątek','C. Gauff','13:00',[1.55,2.45],{more:95}),
+      M('A. Sabalenka','E. Rybakina','19:00',[1.80,2.00],{more:99})],total:4}
+  ]},
+  hockey:{label:'Hokej',icon:'🏒',markets:[{id:'mw',label:'Match Winner',cols:['1','X','2']}],leagues:[]},
+  basket:{label:'Basketbal',icon:'🏀',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]}
+};
+
+// ---------- state ----------
+const st={sport:'football',market:'mw',liveOnly:false,compact:true,pinned:null,expanded:{},sel:new Set(),fav:new Set(),tab:'home'};
+
+const $=s=>document.querySelector(s);
+const fmt=v=>v.toFixed(2);
+function oddsFor(m,market,lg){
+  if(market.cols.length===3||(st.sport==='tennis')) return m.o.slice(0,market.cols.length);
+  const seed=(m.t1.length*7+m.t2.length*3)%10/20;
+  if(market.id==='btts') return [1.55+seed,2.20-seed*0.8];
+  if(market.id==='ou') return [1.65+seed];
+  return m.o;
+}
+function render(){
+  const sp=SPORTS[st.sport];
+  // sport chips
+  $('#sports').innerHTML=Object.entries(SPORTS).map(([k,s])=>`<button class="chip" data-sport="${k}" aria-pressed="${k===st.sport}"><span>${s.icon}</span>${s.label}</button>`).join('');
+  let market=sp.markets.find(x=>x.id===st.market&&!x.live)||sp.markets.find(x=>!x.live);
+  st.market=market.id;
+  const cols=market.cols, oddsW=cols.length===1?96:cols.length===2?112:132;
+  document.documentElement.style.setProperty('--odds-w',oddsW+'px');
+  const marketChips=sp.markets.map(x=>x.live
+    ?`<button class="chip live" data-live aria-pressed="${st.liveOnly}"><span class="dot"></span>Live</button><span class="chip-sep"></span>`
+    :`<button class="chip" data-market="${x.id}" aria-pressed="${x.id===st.market}">${x.label}</button>`).join('');
+  let leagues=sp.leagues.slice();
+  if(st.pinned){ const i=leagues.findIndex(l=>l.id===st.pinned); if(i>0) leagues.unshift(leagues.splice(i,1)[0]); }
+  leagues=leagues.map(l=>({...l,matches:l.matches.filter(m=>!st.liveOnly||m.live)})).filter(l=>l.matches.length);
+  if(!leagues.length){ $('#list').innerHTML=`<div class="table"><div class="chips markets">${marketChips}</div><div class="empty">No ${st.liveOnly?'live ':''}events for ${sp.label} right now.</div></div>`; return; }
+
+  if(!st.compact){
+    $('#list').innerHTML=`<div class="chips" style="padding-top:0">${marketChips}</div><div class="cards">`+leagues.flatMap(l=>l.matches.slice(0,2).map((m,mi)=>{
+      const o=oddsFor(m,market);
+      return `<div class="card"><div class="top"><span>${l.name}</span><span class="${m.live?'t live':''}" style="${m.live?'color:var(--live)':''}">${m.time}</span></div>
+        <div class="match">${m.t1} — ${m.t2}</div>
+        <div class="btns">${cols.map((c,i)=>oddBtn(l.id,mi,i,o[i],m,c)).join('')}</div></div>`;})).join('')+`</div>`;
+    return;
+  }
+  $('#list').innerHTML=`<div class="table"><div class="chips markets">${marketChips}</div>`+leagues.map(l=>{
+    const open=!!st.expanded[l.id]; const show=open?l.matches:l.matches.slice(0,2);
+    return `<section class="league" data-league="${l.id}">
+      <div class="lh"><span class="name">${l.name}</span><span class="labels">${cols.map(c=>`<span>${c}</span>`).join('')}</span>
+        <button class="pin" data-pin="${l.id}" aria-pressed="${st.pinned===l.id}" aria-label="Pin ${l.name}">${st.pinned===l.id?ICON.pinOn:ICON.pin}</button></div>
+      ${show.map((m,mi)=>rowHTML(l,m,mi,market,cols)).join('')}
+      ${l.matches.length>2?`<button class="more" data-more="${l.id}" aria-expanded="${open}">${open?'Show less':`More events (${l.total})`} ${ICON.chev}</button>`:`<div class="more" style="height:12px"></div>`}
+    </section>`;}).join('')+`</div>`;
+}
+function oddBtn(lid,mi,i,v,m,label){
+  const key=`${st.sport}|${st.market}|${lid}|${m.t1}|${i}`;
+  if(m.locked) return `<span class="odd locked">${ICON.lock}</span>`;
+  const chg=(st.market==='mw'&&m.chg&&m.chg[i])||0; const prev=st.market==='mw'&&m.prev&&m.prev[i];
+  return `<button class="odd ${chg?chg+'-c':''}" data-odd="${key}" aria-pressed="${st.sel.has(key)}">${chg==='up'?'<span class="arr up"></span>':''}${label!==undefined?`<span class="lbl">${label}</span>`:''}<span class="v">${fmt(v)}</span>${prev?`<span class="prev">${fmt(prev)}</span>`:''}${chg==='down'?'<span class="arr down"></span>':''}</button>`;
+}
+function rowHTML(l,m,mi,market,cols){
+  const o=oddsFor(m,market); const fk=`${st.sport}|${m.t1}|${m.t2}`;
+  const score=i=> m.sets?`<span class="s sets">${m.sets[i]}</span>`:(m.live&&m.s?`<span class="s">${m.s[i]}</span>`:'');
+  return `<div class="row">
+    <div class="ev"><div class="tcol">${ICON.stream}<span class="t ${m.live?'live':''}">${m.time}</span></div>
+      <div class="teams"><div class="team"><span class="n">${m.t1}</span>${m.serve===0?'<span class="serve"></span>':''}${score(0)}</div>
+        <div class="team"><span class="n">${m.t2}</span>${m.serve===1?'<span class="serve"></span>':''}${score(1)}</div></div></div>
+    <div class="vdiv"></div>
+    <div class="odds">${cols.map((c,i)=>oddBtn(l.id,mi,i,o[i]??0,m)).join('')}</div>
+    <div class="meta"><button class="star" data-fav="${fk}" aria-pressed="${st.fav.has(fk)}" aria-label="Favourite">${st.fav.has(fk)?ICON.starOn:ICON.star}</button><span class="pill">+${m.more}</span></div>
+  </div>`;
+}
+function toast(msg){ const t=$('#toast'); $('#toastText').textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function scrollToList(){ const sc=window.matchMedia('(min-width:600px)').matches?$('#scroller'):document.scrollingElement; const target=$('#list'); const top=target.getBoundingClientRect().top-(sc===document.scrollingElement?0:sc.getBoundingClientRect().top)+sc.scrollTop-150; sc.scrollTo({top:Math.max(0,top),behavior:'smooth'}); }
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.sport){ st.sport=b.dataset.sport; st.market='mw'; st.expanded={}; st.pinned=null; render(); return; }
+  if(b.dataset.market){ st.market=b.dataset.market; render(); return; }
+  if('live' in b.dataset){ st.liveOnly=!st.liveOnly; render(); return; }
+  if(b.dataset.odd){ const k=b.dataset.odd; st.sel.has(k)?st.sel.delete(k):st.sel.add(k); b.setAttribute('aria-pressed',st.sel.has(k)); return; }
+  if(b.dataset.fav){ const k=b.dataset.fav; const on=!st.fav.has(k); on?st.fav.add(k):st.fav.delete(k); b.setAttribute('aria-pressed',on); b.innerHTML=on?ICON.starOn:ICON.star; return; }
+  if(b.dataset.pin){ const id=b.dataset.pin; const lg=SPORTS[st.sport].leagues.find(l=>l.id===id); const name=lg.name.split(' • ').slice(-1)[0]==='Singles'?lg.name.split(' • ').slice(0,2).join(' '):lg.name.split(' • ').pop();
+    if(st.pinned===id){ st.pinned=null; render(); toast(`${name} unpinned`); } else { st.pinned=id; render(); toast(`${name} pinned to the top`); scrollToList(); } return; }
+  if(b.dataset.more){ const id=b.dataset.more; st.expanded[id]=!st.expanded[id]; render(); return; }
+  if(b.id==='compact'){ st.compact=!st.compact; b.setAttribute('aria-checked',st.compact); render(); return; }
+  if(b.dataset.tab){ st.tab=b.dataset.tab; st.liveOnly=(st.tab==='live'); if(st.tab==='home'||st.tab==='live'){ render(); renderNav(); window.scrollTo({top:0}); $('#scroller').scrollTo({top:0}); } else { renderNav(); toast(`${b.textContent.trim()} isn't part of this prototype`); } return; }
+});
+const NAV=[['home','Home','<path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z"/>'],['live','Live','<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M10 2h4"/>'],['sport','Sport','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l2.5-8L12 16M8 13h3M14 8h4l-4 8h4"/>'],['tickets','Tickets','<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 9h6M9 13h4"/>'],['casino','Casino','<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'],['menu','Menu','<path d="M4 7h16M4 12h16M4 17h16"/>']];
+function renderNav(){ $('#nav').innerHTML=NAV.map(([k,l,p])=>`<button data-tab="${k}" ${st.tab===k?'aria-current="page"':''}><svg viewBox="0 0 24 24" fill="${st.tab===k&&k==='home'?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${p}</svg>${l}</button>`).join(''); }
+render(); renderNav();
+</script>
+</body>
+</html>
