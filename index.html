@@ -27,11 +27,16 @@
   img{display:block}
 
   .phone{position:relative;max-width:375px;margin:0 auto;min-height:100vh;background:var(--bg)}
+  /* Desktop: the phone frame always fits the window and only the frame scrolls,
+     so the page can never scroll the app bar + sticky league header out of view. */
   @media (min-width:600px){
-    body{padding:24px 0}
-    .phone{min-height:auto;height:812px;border-radius:36px;overflow:hidden;box-shadow:0 0 0 10px #1b1b20,0 30px 80px rgba(0,0,0,.6)}
-    .scroller{height:100%;overflow-y:auto}
+    html,body{height:100%;overflow:hidden}
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0}
+    .phone{width:375px;flex:0 0 auto;min-height:0;height:min(812px, calc(100vh - 64px));border-radius:36px;overflow:hidden;box-shadow:0 0 0 10px #1b1b20,0 30px 80px rgba(0,0,0,.6)}
+    .scroller{height:100%;overflow-y:auto;overscroll-behavior:contain}
   }
+  /* Phone: stop pull-to-refresh / bounce from jumping the page */
+  html{overscroll-behavior-y:none}
   .scroller{scrollbar-width:none}
   .scroller::-webkit-scrollbar{display:none}
 
@@ -138,7 +143,7 @@
   @media (min-width:600px){.toast{position:absolute}}
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .toast svg{flex:0 0 24px}
-  .proto-note{max-width:375px;margin:12px auto 0;color:#6c6c78;font:500 11px Inter,sans-serif;text-align:center}
+  .proto-note{max-width:375px;margin:14px auto 0;flex:0 0 auto;color:#6c6c78;font:500 11px Inter,sans-serif;text-align:center}
   @media (max-width:599px){.proto-note{display:none}}
 </style>
 </head>
@@ -301,6 +306,15 @@ document.addEventListener('click',e=>{
   if(b.id==='compact'){ st.compact=!st.compact; b.setAttribute('aria-checked',st.compact); render(); return; }
   if(b.dataset.tab){ const t=b.dataset.tab; if(t==='home'||t==='live'){ st.tab=t; st.liveOnly=(t==='live'); $('#navImg').src=`assets/nav-${t}.png`; render(); scroller().scrollTo({top:0}); } else { toast(`${b.getAttribute('aria-label')} isn't part of this prototype`); } return; }
 });
+// Leave enough room after the last league so every league header can reach the top and stick.
+function fitEndSpace(){
+  const list=$('#list'); const last=list.querySelector('.league:last-child');
+  const sc=scroller(); const viewH=sc===document.scrollingElement?window.innerHeight:sc.clientHeight;
+  const need=last?viewH-parseInt(getComputedStyle(document.documentElement).getPropertyValue('--appbar-h'))-last.offsetHeight-48:0;
+  list.style.paddingBottom=Math.max(0,need)+'px';
+}
+const _render=render; render=function(){ _render(); requestAnimationFrame(fitEndSpace); };
+addEventListener('resize',fitEndSpace);
 $('#navHits').innerHTML=['Home','Live','Sport','Tickets','Casino','Menu'].map(l=>`<button data-tab="${l.toLowerCase()}" aria-label="${l}"></button>`).join('');
 render();
 </script>
