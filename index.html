@@ -99,7 +99,10 @@
 
   .league{position:relative}
   /* Tournament_header: 32 high, padding 4/12, gap 8 */
-  .lh{position:sticky;top:var(--appbar-h);z-index:10;display:flex;align-items:center;gap:8px;height:32px;padding:4px 12px;background:var(--surface-2)}
+  /* Only the first header row (.bar) is sticky and carries 1 X 2; its league name follows the scroll.
+     The other competitions have a plain header (name + pin) that slides under it. */
+  .lh.bar{position:sticky;top:var(--appbar-h);z-index:10}
+  .lh{position:relative;display:flex;align-items:center;gap:8px;height:32px;padding:4px 12px;background:var(--surface-2)}
   .lh .name{flex:1;min-width:0;font:600 14px/16px Roboto;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lh .labels{display:flex;width:var(--odds-w);flex:0 0 var(--odds-w);font:600 12px/15px Inter,sans-serif;color:var(--text-2)}
   .lh .labels span{flex:1;text-align:center}
@@ -244,7 +247,19 @@ const SPORTS={
     {id:'bl',name:'Germany • Bundesliga',total:9,matches:[
       M('Bayern München','Dortmund','15:30',[1.95,3.60,3.80],{more:121,chg:['split-up',0,0],prev:[1.80]}),
       M('RB Leipzig','Leverkusen','17:30',[2.60,3.30,1.85],{more:112,chg:[0,0,'split-down'],prev:[0,0,1.70]}),
-      M('Stuttgart','Frankfurt','15:30',[2.10,3.50,3.30],{more:90})]}
+      M('Stuttgart','Frankfurt','15:30',[2.10,3.50,3.30],{more:90})]},
+    {id:'l1',name:'France • Ligue 1',total:6,matches:[
+      M('Paris SG','Marseille','21:00',[1.50,4.40,6.00],{more:118}),
+      M('Lyon','Monaco','17:00',[2.40,3.50,2.80],{more:96}),
+      M('Lille','Nice','15:00',[2.10,3.30,3.50],{more:88})]},
+    {id:'ed',name:'Netherlands • Eredivisie',total:5,matches:[
+      M('Ajax','PSV','14:30',[2.55,3.60,2.60],{more:104}),
+      M('Feyenoord','AZ Alkmaar','16:45',[1.75,3.90,4.30],{more:92}),
+      M('Twente','Utrecht','20:00',[1.95,3.60,3.70],{more:80})]},
+    {id:'pt',name:'Portugal • Primeira Liga',total:4,matches:[
+      M('Benfica','Porto','20:30',[2.20,3.30,3.20],{more:110}),
+      M('Sporting CP','Braga','18:00',[1.65,3.90,5.00],{more:98}),
+      M('Vitória SC','Boavista','16:00',[1.85,3.40,4.40],{more:76})]}
   ]},
   tennis:{label:'Tenis',icon:'tennis',markets:[{id:'mw',label:'Match Winner',cols:['1','2']},{id:'set',label:'Set Betting',cols:['1','2']},{id:'tg',label:'Total Games',cols:['Over']}],
     leagues:[
@@ -283,11 +298,13 @@ function render(){
   if(st.pinned){ const i=leagues.findIndex(l=>l.id===st.pinned); if(i>0) leagues.unshift(leagues.splice(i,1)[0]); }
   leagues=leagues.map(l=>({...l,matches:l.matches.filter(m=>!st.liveOnly||m.live)})).filter(l=>l.matches.length);
   if(!leagues.length){ $('#list').innerHTML=`<div class="table">${marketRow}<div class="empty">No ${st.liveOnly?'live ':''}events for ${sp.label} right now.</div></div>`; return; }
-  $('#list').innerHTML=`<div class="table">${marketRow}`+leagues.map(l=>{
+  const pinBtn=l=>`<button class="pin" data-pin="${l.id}" aria-pressed="${st.pinned===l.id}" aria-label="Pin ${l.name}">${st.pinned===l.id?ICON.pinOn:ICON.pinOff}</button>`;
+  const first=leagues[0];
+  $('#list').innerHTML=`<div class="table">${marketRow}
+    <div class="lh bar" id="bar"><span class="name">${first.name}</span><span class="labels">${cols.map(c=>`<span>${c}</span>`).join('')}</span>${pinBtn(first)}</div>`+leagues.map((l,li)=>{
     const open=!!st.expanded[l.id]; const show=open?l.matches:l.matches.slice(0,2);
     return `<section class="league" data-league="${l.id}">
-      <div class="lh"><span class="name">${l.name}</span><span class="labels">${cols.map(c=>`<span>${c}</span>`).join('')}</span>
-        <button class="pin" data-pin="${l.id}" aria-pressed="${st.pinned===l.id}" aria-label="Pin ${l.name}">${st.pinned===l.id?ICON.pinOn:ICON.pinOff}</button></div>
+      ${li>0?`<div class="lh"><span class="name">${l.name}</span>${pinBtn(l)}</div>`:''}
       ${show.map(m=>rowHTML(l,m,market,cols)).join('')}
       ${l.matches.length>2?`<button class="more" data-more="${l.id}" aria-expanded="${open}">${open?'Show less':`More events (${l.total})`}${ICON.chev}</button>`:`<div style="height:8px"></div>`}
     </section>`;}).join('')+`</div>`;
@@ -337,6 +354,21 @@ function fitPhone(){
   d.style.zoom=desk?Math.min(1,(window.innerHeight-56)/852):'';
 }
 addEventListener('resize',fitPhone); fitPhone();
+
+// Sticky header row: keep 1 X 2, swap the league name (and its pin) to the competition the user is in.
+function updateBar(){
+  const bar=$('#bar'); if(!bar) return;
+  const barR=bar.getBoundingClientRect(); let cur=null;
+  for(const s of document.querySelectorAll('#list .league')){ if(s.getBoundingClientRect().top <= barR.top + barR.height/2) cur=s; else break; }
+  if(!cur) cur=document.querySelector('#list .league'); if(!cur) return;
+  const id=cur.dataset.league; if(bar.dataset.cur===id) return; bar.dataset.cur=id;
+  const lg=SPORTS[st.sport].leagues.find(l=>l.id===id);
+  bar.querySelector('.name').textContent=lg.name;
+  const p=bar.querySelector('.pin'); p.dataset.pin=id; p.setAttribute('aria-pressed',st.pinned===id); p.setAttribute('aria-label','Pin '+lg.name); p.innerHTML=st.pinned===id?ICON.pinOn:ICON.pinOff;
+}
+const _render=render; render=function(){ _render(); updateBar(); };
+addEventListener('scroll',updateBar,{passive:true});
+$('#scroller').addEventListener('scroll',updateBar,{passive:true});
 $('#navHits').innerHTML=['Home','Live','Sport','Tickets','Casino','Menu'].map(l=>`<button data-tab="${l.toLowerCase()}" aria-label="${l}"></button>`).join('');
 render();
 </script>
