@@ -32,7 +32,7 @@
   @media (min-width:600px){
     html,body{height:100%;overflow:hidden}
     body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0}
-    .phone{width:375px;flex:0 0 auto;min-height:0;height:min(812px, calc(100vh - 64px));border-radius:36px;overflow:hidden;box-shadow:0 0 0 10px #1b1b20,0 30px 80px rgba(0,0,0,.6)}
+    .phone{width:375px;flex:0 0 auto;min-height:0;height:932px;border-radius:36px;overflow:hidden;box-shadow:0 0 0 10px #1b1b20,0 30px 80px rgba(0,0,0,.6)}
     .scroller{height:100%;overflow-y:auto;overscroll-behavior:contain}
   }
   /* Phone: stop pull-to-refresh / bounce from jumping the page */
@@ -44,7 +44,8 @@
   .appbar{position:sticky;top:0;z-index:30;height:var(--appbar-h);background:var(--brand)}
   .appbar img{width:375px;height:86px;max-width:none;position:absolute;top:0;left:0;pointer-events:none}
 
-  main{padding-bottom:calc(var(--nav-h) + 16px)}
+  /* the list ends right above the bottom nav: no empty space, no scrolling past the games */
+  main{padding-bottom:calc(var(--nav-h) + 8px)}
   .h-scroll{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
   .h-scroll::-webkit-scrollbar{display:none}
   .h-scroll img{flex:0 0 auto;scroll-snap-align:start}
@@ -97,7 +98,6 @@
   .row{position:relative}
   .row .content{display:flex;align-items:stretch;gap:8px;padding:0 12px;min-height:70px}
   .row .sep{height:1px;margin:0 12px;background:var(--line)}
-  .league .row:last-of-type .sep{display:none}
   .ev{flex:1;min-width:0;display:flex;gap:8px}
   .tcol{width:36px;flex:0 0 36px;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:17px}
   .tcol svg{width:14px;height:14px}
@@ -306,15 +306,12 @@ document.addEventListener('click',e=>{
   if(b.id==='compact'){ st.compact=!st.compact; b.setAttribute('aria-checked',st.compact); render(); return; }
   if(b.dataset.tab){ const t=b.dataset.tab; if(t==='home'||t==='live'){ st.tab=t; st.liveOnly=(t==='live'); $('#navImg').src=`assets/nav-${t}.png`; render(); scroller().scrollTo({top:0}); } else { toast(`${b.getAttribute('aria-label')} isn't part of this prototype`); } return; }
 });
-// Leave enough room after the last league so every league header can reach the top and stick.
-function fitEndSpace(){
-  const list=$('#list'); const last=list.querySelector('.league:last-child');
-  const sc=scroller(); const viewH=sc===document.scrollingElement?window.innerHeight:sc.clientHeight;
-  const need=last?viewH-parseInt(getComputedStyle(document.documentElement).getPropertyValue('--appbar-h'))-last.offsetHeight-48:0;
-  list.style.paddingBottom=Math.max(0,need)+'px';
+// Desktop: show a taller phone (375×932) and scale it down only if the window is shorter.
+function fitPhone(){
+  const p=$('.phone'); if(!matchMedia('(min-width:600px)').matches){ p.style.zoom=''; return; }
+  const s=Math.min(1,(window.innerHeight-56)/932); p.style.zoom=s<1?s:'';
 }
-const _render=render; render=function(){ _render(); requestAnimationFrame(fitEndSpace); };
-addEventListener('resize',fitEndSpace);
+addEventListener('resize',fitPhone); fitPhone();
 $('#navHits').innerHTML=['Home','Live','Sport','Tickets','Casino','Menu'].map(l=>`<button data-tab="${l.toLowerCase()}" aria-label="${l}"></button>`).join('');
 render();
 </script>
