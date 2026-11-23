@@ -19,21 +19,30 @@
     --live:#17cf2f; --up:#0e7c1d; --down:#c42d16; --split-up:#2fbf45; --split-down:#e2412a;
     --pin-on:#d2252a; --pin-off:#58585f; --star:#d0d0d2;
     --line:rgba(255,255,255,.10); --chip:rgba(255,255,255,.10);
-    --appbar-h:74px; --nav-h:48px;
+    --nav-h:48px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:#050507;color:var(--text);font-family:Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
   img{display:block}
 
-  .phone{position:relative;max-width:375px;margin:0 auto;min-height:100vh;background:var(--bg)}
-  /* Desktop: the phone frame always fits the window and only the frame scrolls,
-     so the page can never scroll the app bar + sticky league header out of view. */
+  /* The design is 375 wide; .phone is zoomed (JS) to fill the device width.
+     Phone: fills the real screen. Desktop: shown inside an iPhone 16 (393×852 pt). */
+  :root{--safe-b:env(safe-area-inset-bottom,0px);--status-h:0px;--appbar-h:calc(var(--status-h) + 54px)}
+  .phone{position:relative;width:375px;margin:0 auto;min-height:100vh;background:var(--bg)}
+  .status16,.home-ind,.island{display:none}
   @media (min-width:600px){
+    :root{--status-h:52px;--safe-b:32px;--appbar-h:calc(var(--status-h) + 54px)}  /* 54pt status bar / 34pt home area, in design px */
     html,body{height:100%;overflow:hidden}
     body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0}
-    .phone{width:375px;flex:0 0 auto;min-height:0;height:932px;border-radius:36px;overflow:hidden;box-shadow:0 0 0 10px #1b1b20,0 30px 80px rgba(0,0,0,.6)}
+    .device{position:relative;flex:0 0 auto;width:393px;height:852px;border-radius:55px;overflow:hidden;background:var(--bg);
+      box-shadow:0 0 0 2px #3a3a40,0 0 0 11px #121214,0 0 0 12px #2c2c31,0 30px 80px rgba(0,0,0,.6)}
+    .phone{min-height:0;height:calc(852px / var(--k));overflow:hidden}
     .scroller{height:100%;overflow-y:auto;overscroll-behavior:contain}
+    .status16{display:flex;position:absolute;top:0;left:0;right:0;height:var(--status-h);align-items:center;justify-content:space-between;padding:0 30px 0 38px;font:600 15px/1 Inter,-apple-system,sans-serif;color:#000;z-index:2}
+    .status16 .icons{display:flex;gap:6px;align-items:center}
+    .island{display:block;position:absolute;top:11px;left:50%;transform:translateX(-50%);width:126px;height:37px;border-radius:19px;background:#000;z-index:60}
+    .home-ind{display:block;position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:139px;height:5px;border-radius:3px;background:#fff;z-index:60}
   }
   /* Phone: stop pull-to-refresh / bounce from jumping the page */
   html{overscroll-behavior-y:none}
@@ -41,11 +50,13 @@
   .scroller::-webkit-scrollbar{display:none}
 
   /* PA Top_header 0.1 (exported from Figma) */
+  /* the Figma header's old iPhone-8 status bar (top 20px) is cropped off; iPhone 16 status bar sits above */
   .appbar{position:sticky;top:0;z-index:30;height:var(--appbar-h);background:var(--brand)}
-  .appbar img{width:375px;height:86px;max-width:none;position:absolute;top:0;left:0;pointer-events:none}
+  .appbar .bar{position:absolute;left:0;right:0;top:var(--status-h);height:54px}
+  .appbar img{width:375px;height:86px;max-width:none;position:absolute;top:-20px;left:0;clip-path:inset(20px 0 0 0);pointer-events:none}
 
   /* the list ends right above the bottom nav: no empty space, no scrolling past the games */
-  main{padding-bottom:calc(var(--nav-h) + 8px)}
+  main{padding-bottom:calc(var(--nav-h) + var(--safe-b) + 8px)}
   .h-scroll{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
   .h-scroll::-webkit-scrollbar{display:none}
   .h-scroll img{flex:0 0 auto;scroll-snap-align:start}
@@ -133,13 +144,13 @@
   .empty{padding:32px 16px;text-align:center;color:var(--text-2);font:500 13px Inter,sans-serif}
 
   /* PA Sport_bottom_nav_bar 0.1 (exported from Figma) */
-  .nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:375px;height:var(--nav-h);z-index:40;padding-bottom:env(safe-area-inset-bottom);background:var(--bg)}
+  .nav{position:fixed;left:0;bottom:0;width:375px;height:calc(var(--nav-h) + var(--safe-b));z-index:40;background:var(--bg)}
   @media (min-width:600px){.nav{position:absolute}}
-  .nav img{position:absolute;bottom:0;left:0;width:375px;height:56px;max-width:none;pointer-events:none}
-  .nav .hits{position:absolute;inset:0;display:flex}
+  .nav img{position:absolute;bottom:var(--safe-b);left:0;width:375px;height:56px;max-width:none;pointer-events:none}
+  .nav .hits{position:absolute;left:0;right:0;top:0;height:var(--nav-h);display:flex}
   .nav .hits button{flex:1}
 
-  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 16px);transform:translate(-50%,20px);width:calc(100% - 32px);max-width:343px;background:var(--surface-2);border-radius:8px;padding:10px 12px;display:flex;gap:8px;align-items:center;font:500 13px Roboto;box-shadow:0 4px 12px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);transform:translate(-50%,20px);width:calc(100% - 32px);max-width:343px;background:var(--surface-2);border-radius:8px;padding:10px 12px;display:flex;gap:8px;align-items:center;font:500 13px Roboto;box-shadow:0 4px 12px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
   @media (min-width:600px){.toast{position:absolute}}
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .toast svg{flex:0 0 24px}
@@ -148,9 +159,18 @@
 </style>
 </head>
 <body>
+<div class="device" id="device">
+<div class="island"></div>
 <div class="phone">
  <div class="scroller" id="scroller">
-  <header class="appbar"><img src="assets/top-header.png" alt="Fortuna"></header>
+  <header class="appbar">
+    <div class="status16"><span>9:41</span><span class="icons">
+      <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.4c2.2 0 4.2.85 5.7 2.25l1.1-1.15A9.6 9.6 0 0 0 8 .8 9.6 9.6 0 0 0 1.2 3.5l1.1 1.15A8 8 0 0 1 8 2.4Zm0 3.2c1.35 0 2.6.5 3.55 1.35l1.1-1.15A6.5 6.5 0 0 0 8 4a6.5 6.5 0 0 0-4.65 1.8l1.1 1.15A5 5 0 0 1 8 5.6Zm0 3.2c.5 0 .97.18 1.35.48L8 10.7 6.65 9.28C7.03 8.98 7.5 8.8 8 8.8Z"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2"/><path d="M25 4.5v4a2 2 0 0 0 0-4Z" opacity=".4"/></svg>
+    </span></div>
+    <div class="bar"><img src="assets/top-header.png" alt="Fortuna"></div>
+  </header>
   <main id="main">
     <div class="h-scroll heroes">
       <img src="assets/hero-1.png" alt=""><img src="assets/hero-2.png" alt=""><img src="assets/hero-3.png" alt=""><img src="assets/hero-4.png" alt="">
@@ -168,6 +188,8 @@
  </div>
   <nav class="nav" id="nav"><img id="navImg" src="assets/nav-home.png" alt=""><div class="hits" id="navHits"></div></nav>
   <div class="toast" id="toast" role="status"><span id="toastIcon"></span><span id="toastText"></span></div>
+</div>
+<div class="home-ind"></div>
 </div>
 <p class="proto-note">Design prototype · scroll the list: the league name changes, 1 X 2 stays · tap odds, ☆, pins, chips, Compact</p>
 
@@ -306,10 +328,13 @@ document.addEventListener('click',e=>{
   if(b.id==='compact'){ st.compact=!st.compact; b.setAttribute('aria-checked',st.compact); render(); return; }
   if(b.dataset.tab){ const t=b.dataset.tab; if(t==='home'||t==='live'){ st.tab=t; st.liveOnly=(t==='live'); $('#navImg').src=`assets/nav-${t}.png`; render(); scroller().scrollTo({top:0}); } else { toast(`${b.getAttribute('aria-label')} isn't part of this prototype`); } return; }
 });
-// Desktop: show a taller phone (375×932) and scale it down only if the window is shorter.
+// The design is 375 wide. Zoom it to the device width:
+// phone = the real screen width; desktop = an iPhone 16 (393×852 pt), scaled down only on short windows.
 function fitPhone(){
-  const p=$('.phone'); if(!matchMedia('(min-width:600px)').matches){ p.style.zoom=''; return; }
-  const s=Math.min(1,(window.innerHeight-56)/932); p.style.zoom=s<1?s:'';
+  const p=$('.phone'), d=$('#device'), desk=matchMedia('(min-width:600px)').matches;
+  const k=(desk?393:window.innerWidth)/375;
+  p.style.zoom=k; document.documentElement.style.setProperty('--k',k);
+  d.style.zoom=desk?Math.min(1,(window.innerHeight-56)/852):'';
 }
 addEventListener('resize',fitPhone); fitPhone();
 $('#navHits').innerHTML=['Home','Live','Sport','Tickets','Casino','Menu'].map(l=>`<button data-tab="${l.toLowerCase()}" aria-label="${l}"></button>`).join('');
