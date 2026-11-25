@@ -331,7 +331,13 @@ const SPORTS={
       M('L. Musetti','A. Zverev','14:30',[1.62,2.30],{more:112})]}
   ]},
   hockey:{label:'Hokej',icon:'hockey',markets:[{id:'mw',label:'Match Winner',cols:['1','X','2']}],leagues:[]},
-  basket:{label:'Basketbal',icon:'basket',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]}
+  basket:{label:'Basketbal',icon:'basket',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]},
+  volley:{label:'Volejbal',icon:'basket',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]},
+  handball:{label:'Házená',icon:'basket',markets:[{id:'mw',label:'Match Winner',cols:['1','X','2']}],leagues:[]},
+  floorball:{label:'Florbal',icon:'hockey',markets:[{id:'mw',label:'Match Winner',cols:['1','X','2']}],leagues:[]},
+  darts:{label:'Šipky',icon:'tennis',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]},
+  esports:{label:'E-sporty',icon:'football',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]},
+  baseball:{label:'Baseball',icon:'basket',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]}
 };
 const ODDS_W={3:132,2:104,1:96};
 
@@ -346,7 +352,7 @@ function oddsFor(m,market){
 }
 function render(){
   const sp=SPORTS[st.sport];
-  $('#sports').innerHTML=['football','hockey','tennis','basket'].map(k=>[k,SPORTS[k]]).map(([k,s])=>`<button class="chip" data-sport="${k}" aria-pressed="${k===st.sport}">${ICON[s.icon]}${s.label}</button>`).join('');
+  $('#sports').innerHTML=['football','hockey','tennis','basket','volley','handball','floorball','darts','esports','baseball'].map(k=>[k,SPORTS[k]]).map(([k,s])=>`<button class="chip" data-sport="${k}" aria-pressed="${k===st.sport}">${ICON[s.icon]}${s.label}</button>`).join('');
   const market=sp.markets.find(x=>x.id===st.market)||sp.markets[0]; st.market=market.id;
   const cols=market.cols; document.documentElement.style.setProperty('--odds-w',ODDS_W[cols.length]+'px');
   const marketRow=`<div class="market"><div class="fixed"><button class="chip live" data-live aria-pressed="${st.liveOnly}">${ICON.live}Live</button><span class="vline"></span></div><div class="chips">${sp.markets.map(x=>`<button class="chip" data-market="${x.id}" aria-pressed="${x.id===st.market}">${x.label}</button>`).join('')}</div></div>`;
