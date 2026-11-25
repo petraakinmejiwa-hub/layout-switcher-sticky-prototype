@@ -174,8 +174,8 @@
   .market .fixed .vline{height:16px;background:var(--line)}
   .market .chips{padding:6px 8px 6px 0;gap:2px}
   .market .chip{height:24px;padding:0 8px;border-radius:6px;font:500 12px/14px Roboto;background:transparent;color:var(--muted);box-shadow:none}
-  /* selected bet type: same surface as the odds cells (gradient + top highlight at 60%) */
-  .market .chip[aria-pressed="true"]{background:linear-gradient(to top,rgba(46,46,56,.6),rgba(59,59,68,.6));color:var(--text);box-shadow:inset 0 1px 0 rgba(75,75,83,.6)}
+  /* selected bet type: same surface as the odds cells (gradient + top highlight at 80%) */
+  .market .chip[aria-pressed="true"]{background:linear-gradient(to top,rgba(46,46,56,.8),rgba(59,59,68,.8));color:var(--text);box-shadow:inset 0 1px 0 rgba(75,75,83,.8)}
   .chip.live{gap:5px}
   .chip.live svg{width:6px;height:6px;flex-basis:6px}
   .market .chip.live[aria-pressed="true"]{color:var(--live);background:rgba(23,207,47,.12);box-shadow:none}
@@ -197,8 +197,8 @@
   /* Odds: one segmented strip, as in Figma 174-248852 — 2px gaps, only the outer corners rounded (10),
      vertical gradient #3b3b44 -> #2e2e38 with a 1px #4b4b53 top highlight, Roboto Bold 14 */
   .odds{gap:2px;padding:8px 0}
-  /* cell background at 60% opacity (text stays fully opaque) */
-  .odd{border-radius:0;background:linear-gradient(to top,rgba(46,46,56,.6),rgba(59,59,68,.6));box-shadow:inset 0 1px 0 rgba(75,75,83,.6);font:700 14px/16px Roboto;gap:0}
+  /* cell background at 80% opacity (text stays fully opaque) */
+  .odd{border-radius:0;background:linear-gradient(to top,rgba(46,46,56,.8),rgba(59,59,68,.8));box-shadow:inset 0 1px 0 rgba(75,75,83,.8);font:700 14px/16px Roboto;gap:0}
   .odd:first-child{border-radius:10px 0 0 10px}
   .odd:last-child{border-radius:0 10px 10px 0}
   .odd:only-child{border-radius:10px}
