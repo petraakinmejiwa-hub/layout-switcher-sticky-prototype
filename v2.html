@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Layout switcher – compact v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Roboto:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Tokens taken from the Figma file (Fortuna Dark) */
+  :root{
+    --bg:#0e0e11;            /* frame background */
+    --surface:#22222a;       /* table / rows */
+    --surface-2:#18181e;     /* league header, +N pill */
+    --brand:#ffdb01;         /* app bar, selected odd, chip stroke */
+    --text:#ffffff; --text-2:#dfdfe6; --muted:#b0b0c0;
+    --live:#17cf2f; --up:#0e7c1d; --down:#c42d16; --split-up:#2fbf45; --split-down:#e2412a;
+    --pin-on:#d2252a; --pin-off:#58585f; --star:#d0d0d2;
+    --line:rgba(255,255,255,.10); --chip:rgba(255,255,255,.10);
+    --nav-h:48px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:#050507;color:var(--text);font-family:Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  img{display:block}
+
+  /* The design is 375 wide; .phone is zoomed (JS) to fill the device width.
+     Phone: fills the real screen. Desktop: shown inside an iPhone 16 (393×852 pt). */
+  :root{--safe-b:env(safe-area-inset-bottom,0px);--status-h:0px;--appbar-h:calc(var(--status-h) + 54px)}
+  .phone{position:relative;width:375px;margin:0 auto;min-height:100vh;background:var(--bg)}
+  .status16,.home-ind,.island{display:none}
+  @media (min-width:600px){
+    :root{--status-h:52px;--safe-b:32px;--appbar-h:calc(var(--status-h) + 54px)}  /* 54pt status bar / 34pt home area, in design px */
+    html,body{height:100%;overflow:hidden}
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0}
+    .device{position:relative;flex:0 0 auto;width:393px;height:852px;border-radius:55px;overflow:hidden;background:var(--bg);
+      box-shadow:0 0 0 2px #3a3a40,0 0 0 11px #121214,0 0 0 12px #2c2c31,0 30px 80px rgba(0,0,0,.6)}
+    .phone{min-height:0;height:calc(852px / var(--k));overflow:hidden}
+    .scroller{height:100%;overflow-y:auto;overscroll-behavior:contain}
+    .status16{display:flex;position:absolute;top:0;left:0;right:0;height:var(--status-h);align-items:center;justify-content:space-between;padding:0 30px 0 38px;font:600 15px/1 Inter,-apple-system,sans-serif;color:#000;z-index:2}
+    .status16 .icons{display:flex;gap:6px;align-items:center}
+    .island{display:block;position:absolute;top:11px;left:50%;transform:translateX(-50%);width:126px;height:37px;border-radius:19px;background:#000;z-index:60}
+    .home-ind{display:block;position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:139px;height:5px;border-radius:3px;background:#fff;z-index:60}
+  }
+  /* Phone: stop pull-to-refresh / bounce from jumping the page */
+  html{overscroll-behavior-y:none}
+  .scroller{scrollbar-width:none}
+  .scroller::-webkit-scrollbar{display:none}
+
+  /* PA Top_header 0.1 (exported from Figma) */
+  /* the Figma header's old iPhone-8 status bar (top 20px) is cropped off; iPhone 16 status bar sits above */
+  .appbar{position:sticky;top:0;z-index:30;height:var(--appbar-h);background:var(--brand)}
+  .appbar .bar{position:absolute;left:0;right:0;top:var(--status-h);height:54px}
+  .appbar img{width:375px;height:86px;max-width:none;position:absolute;top:-20px;left:0;clip-path:inset(20px 0 0 0);pointer-events:none}
+
+  /* the list ends right above the bottom nav: no empty space, no scrolling past the games */
+  main{padding-bottom:calc(var(--nav-h) + var(--safe-b) + 8px)}
+  .h-scroll{display:flex;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+  .h-scroll::-webkit-scrollbar{display:none}
+  .h-scroll img{flex:0 0 auto;scroll-snap-align:start}
+  /* Herobanners Section: padding 4/8, gap 8, banners 180×100 */
+  .heroes{padding:4px 8px;gap:8px}
+  .heroes img{width:180px;height:100px}
+  /* Pre-made_AKO: padding 12/12/0/12, gap 8 */
+  .akos{padding:12px 12px 0;gap:8px;align-items:flex-start}
+  .akos img.tall{width:320px;height:185px}
+  .akos img.short{width:332px;height:180px}
+
+  /* Section_header: 54 high, padding-top 14, sides 8 */
+  .section-head{height:54px;display:flex;align-items:center;justify-content:space-between;padding:14px 8px 0}
+  .section-head h2{margin:0 0 10px;font:600 16px/20px Roboto}
+  .toggle{display:flex;align-items:center;font:500 12px Inter,sans-serif;color:var(--text-2);height:40px}
+  .switch{width:64px;height:40px;display:grid;place-items:center}
+  .switch i{position:relative;width:48px;height:24px;border-radius:12px;background:var(--brand);transition:background .2s}
+  .switch i::after{content:"";position:absolute;top:3px;left:27px;width:18px;height:18px;border-radius:50%;background:#000;transition:left .2s}
+  .switch[aria-checked="false"] i{background:var(--text-2);box-shadow:inset 0 0 0 1px #363644}
+  .switch[aria-checked="false"] i::after{left:3px}
+
+  /* CO Filter_chip 0.1 / Size S: 32 high, pill, padding 12, gap 8, 14px label */
+  .chips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .sport-chips{padding:12px 8px 8px}
+  .chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:30px;background:var(--chip);color:var(--text-2);font:500 14px/16px Roboto;white-space:nowrap;box-shadow:inset 0 0 0 1px transparent}
+  .chip svg{width:16px;height:16px;flex:0 0 16px}
+  .sport-chips .chip[aria-pressed="true"]{color:#fff;box-shadow:inset 0 0 0 1px var(--brand)}
+  .market .chip[aria-pressed="true"]{color:#fff;box-shadow:inset 0 0 0 1px var(--muted)}
+  .chip.live{gap:8px}
+  .chip.live[aria-pressed="true"]{color:#fff;box-shadow:inset 0 0 0 1px var(--live)}
+  .chip.live svg{width:8px;height:8px;flex-basis:8px}
+
+  /* Odds table */
+  .table{margin:0 8px;border-radius:8px;background:var(--surface)}
+  .market{display:flex;height:48px;align-items:center}
+  .market .fixed{display:flex;align-items:center;gap:8px;padding:8px}
+  .market .fixed .vline{width:1px;height:32px;background:rgba(255,255,255,.2)}
+  .market .chips{padding:8px 8px 8px 0}
+
+  .league{position:relative}
+  /* Tournament_header: 32 high, padding 4/12, gap 8 */
+  /* Only the first header row (.bar) is sticky and carries 1 X 2; its league name follows the scroll.
+     The other competitions have a plain header (name + pin) that slides under it. */
+  .lh.bar{position:sticky;top:var(--appbar-h);z-index:10}
+  .lh{position:relative;display:flex;align-items:center;gap:8px;height:32px;padding:4px 12px;background:var(--surface-2)}
+  .lh .name{flex:1;min-width:0;font:600 14px/16px Roboto;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lh .labels{display:flex;width:var(--odds-w);flex:0 0 var(--odds-w);font:600 12px/15px Inter,sans-serif;color:var(--text-2)}
+  .lh .labels span{flex:1;text-align:center}
+  .lh .pin{width:36px;flex:0 0 36px;height:24px;display:grid;place-items:center}
+
+  /* Table_row: content 70 + separator 1; padding 12, gap 8 */
+  .row{position:relative}
+  .row .content{display:flex;align-items:stretch;gap:8px;padding:0 12px;min-height:70px}
+  .row .sep{height:1px;margin:0 12px;background:var(--line)}
+  .ev{flex:1;min-width:0;display:flex;gap:8px}
+  .tcol{width:36px;flex:0 0 36px;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:17px}
+  .tcol svg{width:14px;height:14px}
+  .tcol .t{font:600 12px/22px Inter,sans-serif;width:36px;text-align:center}
+  .tcol .t.live{color:var(--live)}
+  .teams{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;padding:16px 0}
+  .team{display:flex;align-items:center;gap:8px;height:16px;font:600 14px/16px Roboto}
+  .team .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .team .s{font-weight:700}
+  .team .s.sets{font:700 12px/16px Inter;word-spacing:4px}
+  .team .serve{width:6px;height:6px;border-radius:50%;background:var(--brand);flex:0 0 6px}
+  .vdiv{width:1px;flex:0 0 1px;height:50px;align-self:center;background:var(--line)}
+  .odds{display:flex;width:var(--odds-w);flex:0 0 var(--odds-w)}
+  .odd{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 14px/16px Roboto;color:#fff;position:relative}
+  .odd[aria-pressed="true"]{background:var(--brand);color:#000}
+  .odd .arr{position:absolute;left:50%;transform:translateX(-50%);width:16px;height:12px}
+  .odd .arr.top{top:6px} .odd .arr.bottom{bottom:6px}
+  .odd .prev{font:500 11px/13px Inter;color:var(--muted);text-decoration:line-through}
+  .odd.split-up .v{color:var(--split-up)} .odd.split-down .v{color:var(--split-down)}
+  .odd[aria-pressed="true"] .v,.odd[aria-pressed="true"] .prev{color:#000}
+  .odd.locked{cursor:default}
+  /* Meta: 36 wide, padding 8/8, space-between */
+  .meta{width:36px;flex:0 0 36px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px 0}
+  .star{width:24px;height:24px}
+  .pill{background:var(--surface-2);border-radius:4px;padding:4px;font:600 12px/15px Inter,sans-serif;color:var(--text-2)}
+  /* Show_more: 40 high, gap 4 */
+  .more{width:100%;height:40px;display:flex;align-items:center;justify-content:center;gap:4px;font:600 12px/15px Inter,sans-serif;color:var(--text-2)}
+  .more svg{width:20px;height:20px;transition:transform .2s}
+  .more[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .league:last-child .more{border-radius:0 0 8px 8px}
+
+  .cards img{width:375px;height:auto;max-width:100%}
+  .empty{padding:32px 16px;text-align:center;color:var(--text-2);font:500 13px Inter,sans-serif}
+
+  /* PA Sport_bottom_nav_bar 0.1 (exported from Figma) */
+  .nav{position:fixed;left:0;bottom:0;width:375px;height:calc(var(--nav-h) + var(--safe-b));z-index:40;background:var(--bg)}
+  @media (min-width:600px){.nav{position:absolute}}
+  .nav img{position:absolute;bottom:var(--safe-b);left:0;width:375px;height:56px;max-width:none;pointer-events:none}
+  .nav .hits{position:absolute;left:0;right:0;top:0;height:var(--nav-h);display:flex}
+  .nav .hits button{flex:1}
+
+  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);transform:translate(-50%,20px);width:calc(100% - 32px);max-width:343px;background:var(--surface-2);border-radius:8px;padding:10px 12px;display:flex;gap:8px;align-items:center;font:500 13px Roboto;box-shadow:0 4px 12px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+  @media (min-width:600px){.toast{position:absolute}}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast svg{flex:0 0 24px}
+  .proto-note{max-width:375px;margin:14px auto 0;flex:0 0 auto;color:#6c6c78;font:500 11px Inter,sans-serif;text-align:center}
+  @media (max-width:599px){.proto-note{display:none}}
+
+  /* ===================== v2 — review notes =====================
+     Same colour tokens. Restyled filters + table, inspired by Figma 1318-38055 (Midnite-style). */
+  /* 1a/b. Sport filter: smaller pills, selected = solid light fill */
+  .sport-chips{padding:8px 8px 4px;gap:6px}
+  .sport-chips .chip{height:28px;padding:0 10px;gap:6px;font:500 13px/16px Roboto;box-shadow:none}
+  .sport-chips .chip svg{width:14px;height:14px;flex-basis:14px}
+  .sport-chips .chip[aria-pressed="true"]{background:var(--text-2);color:var(--bg);box-shadow:none}
+  /* Bet type: a different, quieter style — small text tabs, the selected one gets a soft fill */
+  .market{height:36px}
+  .market .fixed{padding:6px 4px 6px 8px;gap:6px}
+  .market .fixed .vline{height:16px;background:var(--line)}
+  .market .chips{padding:6px 8px 6px 0;gap:2px}
+  .market .chip{height:24px;padding:0 8px;border-radius:6px;font:500 12px/14px Roboto;background:transparent;color:var(--muted);box-shadow:none}
+  .market .chip[aria-pressed="true"]{background:var(--chip);color:var(--text);box-shadow:none}
+  .chip.live{gap:5px}
+  .chip.live svg{width:6px;height:6px;flex-basis:6px}
+  .market .chip.live[aria-pressed="true"]{color:var(--live);background:rgba(23,207,47,.12);box-shadow:none}
+
+  /* League header: lower, quieter column labels */
+  .lh{height:28px;padding:2px 12px}
+  .lh .name{font:600 13px/16px Roboto}
+  .lh .labels{gap:4px;font:500 11px/14px Inter,sans-serif;color:var(--muted)}
+  .lh .pin svg{width:20px;height:20px}
+
+  /* 2. Tighter rows: 70 -> 56 */
+  .row .content{min-height:56px}
+  .tcol{padding-top:9px;gap:2px}
+  .tcol .t{line-height:18px}
+  .teams{padding:10px 0;gap:4px}
+  .vdiv{display:none}
+
+  /* Odds: separate rounded cells (Figma inspiration) */
+  .odds{gap:4px;padding:8px 0}
+  .odd{border-radius:6px;background:var(--surface-2);font:600 13px/16px Roboto;gap:0}
+  .odd.locked{background:transparent}
+  .odd .arr{left:auto;right:4px;transform:none;width:8px;height:6px}
+  .odd .arr.top{top:4px} .odd .arr.bottom{bottom:4px}
+  .odd .prev{font-size:10px;line-height:12px}
+  /* 4. Selection dialled down: brand outline + light tint instead of a solid block */
+  .odd[aria-pressed="true"]{background:rgba(255,219,1,.12);color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+  .odd[aria-pressed="true"] .v{color:var(--brand)}
+  .odd[aria-pressed="true"] .prev{color:var(--muted)}
+
+  .meta{padding:8px 0}
+  .star{width:20px;height:20px}
+  .pill{padding:2px 4px;font:500 11px/14px Inter,sans-serif;color:var(--muted);background:transparent}
+
+  /* 3. More events: 40 -> 28, quieter */
+  .more{height:28px;gap:2px;font:500 11px/14px Inter,sans-serif;color:var(--muted)}
+  .more svg{width:14px;height:14px}
+  .proto-note a{color:#9a9aa8}
+</style>
+</head>
+<body>
+<div class="device" id="device">
+<div class="island"></div>
+<div class="phone">
+ <div class="scroller" id="scroller">
+  <header class="appbar">
+    <div class="status16"><span>9:41</span><span class="icons">
+      <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.4c2.2 0 4.2.85 5.7 2.25l1.1-1.15A9.6 9.6 0 0 0 8 .8 9.6 9.6 0 0 0 1.2 3.5l1.1 1.15A8 8 0 0 1 8 2.4Zm0 3.2c1.35 0 2.6.5 3.55 1.35l1.1-1.15A6.5 6.5 0 0 0 8 4a6.5 6.5 0 0 0-4.65 1.8l1.1 1.15A5 5 0 0 1 8 5.6Zm0 3.2c.5 0 .97.18 1.35.48L8 10.7 6.65 9.28C7.03 8.98 7.5 8.8 8 8.8Z"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2"/><path d="M25 4.5v4a2 2 0 0 0 0-4Z" opacity=".4"/></svg>
+    </span></div>
+    <div class="bar"><img src="assets/top-header.png" alt="Fortuna"></div>
+  </header>
+  <main id="main">
+    <div class="h-scroll heroes">
+      <img src="assets/hero-1.png" alt=""><img src="assets/hero-2.png" alt=""><img src="assets/hero-3.png" alt=""><img src="assets/hero-4.png" alt="">
+    </div>
+    <div class="h-scroll akos">
+      <img class="tall" src="assets/ako-1.png" alt=""><img class="tall" src="assets/ako-2.png" alt=""><img class="short" src="assets/ako-3.png" alt=""><img class="short" src="assets/ako-4.png" alt=""><img class="short" src="assets/ako-5.png" alt="">
+    </div>
+    <div class="section-head">
+      <h2>Upcoming Events</h2>
+      <div class="toggle">Compact <button class="switch" id="compact" role="switch" aria-checked="true" aria-label="Compact view"><i></i></button></div>
+    </div>
+    <div class="chips sport-chips" id="sports"></div>
+    <div id="list"></div>
+  </main>
+ </div>
+  <nav class="nav" id="nav"><img id="navImg" src="assets/nav-home.png" alt=""><div class="hits" id="navHits"></div></nav>
+  <div class="toast" id="toast" role="status"><span id="toastIcon"></span><span id="toastText"></span></div>
+</div>
+<div class="home-ind"></div>
+</div>
+<p class="proto-note">Compact v2 (review notes) · <a href="./">see v1</a> · scroll the list: the league name changes, 1 X 2 stays · tap odds, ☆, pins, chips, Compact</p>
+
+<script>
+// Icons exported from the Figma library (SVG)
+const ICON={
+ stream:'<svg viewBox="0 0 14 14" fill="none"><path d="M12.602 1.575C12.9714 1.57501 13.2708 1.93435 13.2709 2.37764V8.79612C13.2709 9.23943 12.9714 9.59875 12.602 9.59876H8.42138C8.32905 9.59878 8.25418 9.68866 8.25416 9.79945V10.7527C8.25416 10.8635 8.32904 10.9534 8.42138 10.9534H9.25748C9.48836 10.9534 9.67552 11.1781 9.67552 11.4551V11.9238C9.67552 12.2009 9.48836 12.4255 9.25748 12.4255H4.74257C4.51168 12.4255 4.32452 12.2009 4.32452 11.9238V11.4551C4.32452 11.1781 4.51168 10.9534 4.74257 10.9534H5.57866C5.671 10.9534 5.74588 10.8635 5.74588 10.7527V9.79945C5.74586 9.68866 5.67099 9.59878 5.57866 9.59876H1.39806C1.02865 9.59875 0.729191 9.23943 0.729187 8.79612V2.37764C0.72922 1.93435 1.02867 1.57501 1.39806 1.575H12.602ZM1.97523 2.44815C1.836 2.44819 1.72315 2.58162 1.72315 2.74618V8.31148C1.72315 8.47604 1.836 8.60947 1.97523 8.60951L12.0008 8.54961C12.14 8.54958 12.2529 8.41615 12.2529 8.25158V2.74618C12.2529 2.58162 12.14 2.44819 12.0008 2.44815H1.97523Z" fill="#DFDFE6"/><path d="M8.91405 5.09841C9.21979 5.25019 9.21979 5.69657 8.91405 5.84835L5.91695 7.33625C5.64699 7.47027 5.33323 7.26872 5.33323 6.96128V3.98548C5.33323 3.67804 5.64699 3.47649 5.91695 3.61051L8.91405 5.09841Z" fill="#DFDFE6"/></svg>',
+ starOff:'<svg viewBox="0 0 24 24" fill="none"><path d="M10.7837 4.74886C11.2337 3.66704 12.7662 3.66705 13.2162 4.74886L14.7378 8.40726C14.7654 8.47381 14.828 8.51928 14.8999 8.52504L18.8494 8.84168C20.0173 8.93531 20.4909 10.3928 19.6011 11.155L16.5919 13.7327C16.5372 13.7796 16.5133 13.8532 16.53 13.9233L17.4494 17.7774C17.7212 18.917 16.4814 19.8178 15.4815 19.2071L12.1001 17.1418C12.0386 17.1042 11.9613 17.1042 11.8998 17.1418L8.51839 19.2071C7.51849 19.8178 6.27867 18.917 6.55052 17.7774L7.46986 13.9233C7.48659 13.8532 7.46268 13.7796 7.40794 13.7327L4.3988 11.155C3.50897 10.3928 3.98255 8.93531 5.15046 8.84168L9.10001 8.52504C9.17186 8.51928 9.23444 8.47381 9.26212 8.40726L10.7837 4.74886ZM12.1774 5.1809C12.1118 5.02303 11.8881 5.02304 11.8225 5.1809L10.3009 8.8393C10.1112 9.29536 9.68227 9.60697 9.18991 9.64644L5.24036 9.96308C5.06993 9.97674 5.00083 10.1894 5.13068 10.3006L8.13982 12.8783C8.51494 13.1996 8.67877 13.7038 8.56416 14.1843L7.64482 18.0384C7.60515 18.2047 7.78607 18.3361 7.93197 18.247L11.3133 16.1817C11.7349 15.9242 12.265 15.9242 12.6865 16.1817L16.0679 18.247C16.2138 18.3361 16.3947 18.2047 16.3551 18.0384L15.4357 14.1843C15.3211 13.7038 15.4849 13.1996 15.8601 12.8783L18.8692 10.3006C18.9991 10.1894 18.9299 9.97674 18.7595 9.96308L14.81 9.64644C14.3176 9.60697 13.8887 9.29536 13.699 8.8393L12.1774 5.1809Z" fill-rule="evenodd" clip-rule="evenodd" fill="#D0D0D2"/></svg>',
+ starOn:'<svg viewBox="0 0 24 24" fill="none"><path d="M13.2163 4.74886C12.7663 3.66705 11.2338 3.66704 10.7839 4.74886L9.26224 8.40726C9.23456 8.47381 9.17198 8.51928 9.10013 8.52504L5.15058 8.84168C3.98267 8.93531 3.5091 10.3928 4.39892 11.155L7.40806 13.7327C7.4628 13.7796 7.48671 13.8532 7.46999 13.9233L6.55064 17.7774C6.27879 18.917 7.51861 19.8178 8.51851 19.2071L11.8999 17.1418C11.9614 17.1042 12.0387 17.1042 12.1003 17.1418L15.4816 19.2071C16.4815 19.8178 17.7213 18.917 17.4495 17.7774L16.5301 13.9233C16.5134 13.8532 16.5373 13.7796 16.5921 13.7327L19.6012 11.155C20.491 10.3928 20.0175 8.93531 18.8496 8.84168L14.9 8.52504C14.8282 8.51928 14.7656 8.47381 14.7379 8.40726L13.2163 4.74886Z" fill="#FFDB01"/></svg>',
+ pinOff:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15.4024 6.58514L17.419 8.60174C18.0562 9.2389 17.5159 10.321 16.6242 10.1936L16.1081 10.1199L13.4037 12.8238L13.3979 13.0483L13.3978 13.0513L13.3975 13.0623L13.396 13.1079C13.3945 13.1484 13.392 13.2082 13.3883 13.2843C13.3807 13.4364 13.3679 13.6526 13.3469 13.9065C13.3045 14.4179 13.2299 15.0673 13.1023 15.6515C13.0385 15.9436 12.964 16.2075 12.8788 16.4241C12.791 16.6479 12.706 16.7842 12.64 16.8535C12.6261 16.8681 12.6158 16.8772 12.6087 16.8827C12.5779 16.8723 12.4909 16.8325 12.3457 16.6873C10.5792 14.9209 9.92928 14.2448 9.80129 14.1107C9.77615 14.0843 9.75139 14.0598 9.72601 14.0359C9.6097 13.9261 9.05067 13.3922 7.31738 11.6589C7.17493 11.5165 7.13494 11.4307 7.12411 11.3995C7.12967 11.3925 7.13874 11.3823 7.15312 11.3686C7.22285 11.3024 7.35947 11.2174 7.58337 11.1294C7.80019 11.0442 8.06412 10.9695 8.35619 10.9056C8.9403 10.7777 9.58932 10.7027 10.1004 10.6599C10.3541 10.6387 10.5702 10.6257 10.7222 10.618C10.7982 10.6142 10.8581 10.6117 10.8985 10.6102L10.944 10.6086L10.9551 10.6082L10.9575 10.6082L11.1818 10.6022L13.8862 7.89877L13.8123 7.38129C13.6848 6.4892 14.7654 5.94816 15.4024 6.58514ZM14.5115 13.34L14.5131 13.3054L16.5057 11.3132C18.4433 11.5552 19.606 9.19772 18.2139 7.80565L16.1973 5.78904C14.8056 4.39732 12.4513 5.56173 12.6936 7.50023L10.7008 9.49228L10.6657 9.49401C10.5036 9.50217 10.275 9.51593 10.0067 9.53838C9.47368 9.58298 8.76923 9.66308 8.11579 9.80618C7.78908 9.87772 7.46321 9.96755 7.17236 10.0818C6.8886 10.1933 6.5997 10.3428 6.37921 10.5521C6.14714 10.7724 5.96357 11.09 6.00045 11.4898C6.03452 11.8591 6.24798 12.1805 6.5225 12.455C7.67552 13.608 8.31333 14.2348 8.64922 14.5611L5.18174 18.0291C4.96193 18.249 4.96169 18.6052 5.18121 18.8246C5.40073 19.0441 5.75688 19.0438 5.9767 18.824L9.44289 15.3572C9.83185 15.7551 10.4922 16.4248 11.5508 17.4834C11.8259 17.7585 12.1473 17.972 12.516 18.0068C12.9155 18.0444 13.2335 17.8619 13.4545 17.6295C13.6643 17.409 13.8139 17.1198 13.9255 16.8359C14.0398 16.5449 14.1295 16.2187 14.2009 15.8918C14.3438 15.238 14.4234 14.533 14.4676 13.9995C14.4899 13.731 14.5034 13.5022 14.5115 13.34Z" fill-rule="evenodd" clip-rule="evenodd" fill="#58585F"/></svg>',
+ pinOn:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14.6016 10.4076L14.5783 10.382L14.5786 7.56431C16.1198 6.3654 15.2749 3.87628 13.3063 3.87628H10.4543C8.48616 3.87628 7.64477 6.3644 9.18687 7.56374L9.18636 10.3814L9.16276 10.4075C9.0539 10.5279 8.90195 10.6993 8.72812 10.9049C8.38276 11.3133 7.94128 11.8681 7.58041 12.4313C7.39999 12.7129 7.23308 13.0069 7.10823 13.2933C6.98642 13.5728 6.88781 13.8828 6.87989 14.1867C6.87156 14.5065 6.96638 14.861 7.27517 15.1176C7.56036 15.3546 7.93858 15.4309 8.3268 15.4309C9.95737 15.4309 10.8515 15.4231 11.3198 15.4164L11.3202 20.3204C11.3202 20.6313 11.5719 20.8833 11.8823 20.8833C12.1928 20.8833 12.4444 20.6312 12.4444 20.3203L12.444 15.4181C13.0003 15.4244 13.9408 15.431 15.438 15.431C15.827 15.431 16.2053 15.3547 16.4905 15.1186C16.7996 14.8627 16.8954 14.5088 16.8874 14.1882C16.8798 13.8839 16.7811 13.5736 16.6592 13.294C16.5343 13.0074 16.3671 12.7133 16.1865 12.4317C15.8251 11.8683 15.3829 11.3135 15.037 10.9051C14.8629 10.6995 14.7106 10.528 14.6016 10.4076Z" fill-rule="evenodd" clip-rule="evenodd" fill="#D2252A"/></svg>',
+ chev:'<svg viewBox="0 0 20 20" fill="none"><path d="M1.34974 5.29967C1.59382 5.05559 1.98955 5.05559 2.23363 5.29967L10.0413 13.1073L17.8489 5.29967C18.093 5.05559 18.4887 5.05559 18.7328 5.29967C18.9769 5.54375 18.9769 5.93948 18.7328 6.18355L10.0413 14.8751L1.34974 6.18356C1.10567 5.93948 1.10567 5.54375 1.34974 5.29967Z" fill-rule="evenodd" clip-rule="evenodd" fill="#DFDFE6"/></svg>',
+ up:'<svg class="arr top" viewBox="0 0 16 12" fill="none"><path d="M8 1L15 11H1L8 1Z" fill="#0E7C1D" stroke="#0E7C1D"/></svg>',
+ down:'<svg class="arr bottom" viewBox="0 0 16 12" fill="none"><path d="M8 11L15 1H1L8 11Z" fill="#C42D16" stroke="#C42D16"/></svg>',
+ splitUp:'<svg class="arr top" viewBox="0 0 16 12" fill="none"><path d="M8 2L13.5 10H2.5L8 2Z" stroke="#2FBF45" stroke-width="1.5"/></svg>',
+ splitDown:'<svg class="arr bottom" viewBox="0 0 16 12" fill="none"><path d="M8 10L13.5 2H2.5L8 10Z" stroke="#E2412A" stroke-width="1.5"/></svg>',
+ lock:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2.6" y="7" width="10.8" height="7.4" rx="1.6" stroke="#B0B0C0" stroke-width="1.2"/><path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="#B0B0C0" stroke-width="1.2"/><circle cx="8" cy="10.7" r="1" fill="#B0B0C0"/></svg>',
+ live:'<svg viewBox="0 0 8 8" fill="none"><circle cx="4" cy="4" r="4" fill="#17CF2F"/></svg>',
+ football:'<svg viewBox="0 0 16 16" fill="none"><path d="M0.0390625 7.99992C0.0390625 3.60616 3.60626 0.0389557 8.0001 0.0389557C12.3939 0.0389557 15.9611 3.60616 15.9611 8C15.9611 12.3938 12.3939 15.961 8.00002 15.961C3.60626 15.961 0.0390625 12.3938 0.0390625 7.99992Z" fill-rule="evenodd" clip-rule="evenodd" fill="url(#fb0)"/><path d="M13.2773 2.88616L13.9301 5.66128L15.4114 8.3828L15.9604 7.94688C15.9475 5.98896 15.2281 4.19904 14.0443 2.81904L13.2773 2.88616Z" fill="#4a4f5c"/><path d="M1.1593 12.0734C2.13434 13.7073 3.67794 14.9622 5.51698 15.5656L6.35898 14.9462L4.15962 12.5974L1.47482 11.2885L1.1593 12.0734Z" fill="#4a4f5c"/><path d="M11.8404 12.5974L9.64105 14.9462L10.4834 15.5654C12.3218 14.9623 13.8649 13.708 14.8399 12.075L14.5252 11.2885L11.8404 12.5974Z" fill="#4a4f5c"/><path d="M0.0406494 7.87352L0.676969 8.3828L2.15833 5.66144L2.81105 2.88616L1.95913 2.8152C0.788009 4.1784 0.0707294 5.94248 0.0406494 7.87352Z" fill="#4a4f5c"/><path d="M5.61772 0.401679L5.22748 1.23728L8.07556 1.54072L10.9239 1.23736L10.5629 0.460639C9.75852 0.187279 8.89668 0.0389586 8.00012 0.0389586C7.19218 0.0382678 6.38884 0.160576 5.61772 0.401679Z" fill="#4a4f5c"/><path d="M7.94602 4.17112L4.96586 6.33656C4.89482 6.38832 4.85874 6.49912 4.88586 6.5828L6.02418 10.0862C6.0513 10.1699 6.1457 10.2384 6.2337 10.2384L9.91746 10.2383C10.0053 10.2383 10.0996 10.1699 10.1268 10.0862L11.2653 6.5828C11.2924 6.49912 11.2565 6.38832 11.1853 6.33656L8.2049 4.17112C8.13386 4.11944 8.01706 4.11944 7.94602 4.17112Z" fill="#4a4f5c"/><defs><radialGradient id="fb0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(5.1701 3.9996) rotate(-90) scale(15.028)"><stop stop-color="#EFF0F5"/><stop offset="0.41" stop-color="#DADBE0"/><stop offset="0.63" stop-color="#A1A7B5"/><stop offset="0.73" stop-color="#868A94"/><stop offset="0.83" stop-color="#DADBE0"/></radialGradient></defs></svg>',
+ hockey:'<svg viewBox="0 0 16 16" fill="none"><path d="M8.90707 10.0345C4.90911 11.4976 0.991738 10.8349 0.15741 8.55471C0.159313 8.85868 1.2605 11.5694 1.3648 11.8544C2.19913 14.1345 6.11636 14.7973 10.1142 13.3342C14.1123 11.8714 16.6768 8.83694 15.8426 6.55676C15.72 6.22212 14.8808 3.52056 14.6351 3.25706C15.4696 5.53732 12.9051 8.57155 8.90707 10.0345Z" fill="#2B2F38"/><path d="M5.8856 1.77737C1.8875 3.24028 -0.676825 6.27443 0.157431 8.55476C0.991759 10.8349 4.90913 11.4976 8.90709 10.0346C12.9051 8.5716 15.4697 5.53737 14.6351 3.25712C14.1008 1.79662 12.3027 0.999838 10.0279 0.999985C8.75082 1.00006 7.32311 1.25133 5.8856 1.77737Z" fill="#545a68"/></svg>',
+ tennis:'<svg viewBox="0 0 16 16" fill="none"><path d="M0.0258179 7.99991C0.0258179 3.59888 3.59889 0.0258026 8.00001 0.0258026C12.4011 0.0258026 15.9742 3.59888 15.9742 8C15.9742 12.401 12.4011 15.9741 8.00001 15.9741C3.59889 15.9741 0.0258179 12.401 0.0258179 7.99991Z" fill-rule="evenodd" clip-rule="evenodd" fill="url(#tn0)"/><path d="M8.65719 1.44008C8.1457 1.79982 7.67628 2.00765 7.17951 2.22769C6.40446 2.57074 5.52609 2.95965 4.37547 3.96025C3.33607 4.8639 2.7353 6.17616 2.68377 7.6553C2.62966 9.21178 3.19938 10.7054 4.24687 11.7531C5.24884 12.7548 6.65856 13.3196 8.14114 13.3196C8.20893 13.3196 8.2768 13.3184 8.34476 13.3161C9.82381 13.2645 11.136 12.6637 12.0397 11.6245C13.0402 10.4738 13.4291 9.59543 13.772 8.82046C13.9922 8.32352 14.2 7.8541 14.5597 7.3427C15.0138 6.69745 15.4462 6.33892 15.7563 6.14322C15.6475 5.68729 15.4984 5.2419 15.311 4.81229C14.822 5.06373 14.1286 5.56386 13.434 6.55079C12.9964 7.17298 12.7509 7.7273 12.5137 8.26347C12.1804 9.01616 11.8657 9.72713 11.001 10.7214C10.3506 11.4696 9.39018 11.9025 8.29693 11.9406C7.11904 11.9797 5.99895 11.5585 5.22011 10.7798C4.44145 10.001 4.01822 8.87965 4.05925 7.70313C4.09736 6.6098 4.53031 5.64937 5.27844 4.99887C6.27293 4.13418 6.9839 3.81935 7.73667 3.48618C8.27259 3.24885 8.82691 3.00343 9.44919 2.56575C10.436 1.87139 10.9362 1.17797 11.1877 0.689109C10.7585 0.501673 10.3135 0.352729 9.85796 0.244034C9.66244 0.552077 9.30287 0.985711 8.65719 1.44008Z" fill="#EEF0F4"/><defs><radialGradient id="tn0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(5.16543 3.99294) rotate(-90) scale(15.0529 15.053)"><stop stop-color="#DAE0AC"/><stop offset="0.24" stop-color="#CFE651"/><stop offset="0.41" stop-color="#B4E651"/><stop offset="0.63" stop-color="#90C22B"/><stop offset="0.73" stop-color="#80AD27"/><stop offset="0.83" stop-color="#ACDB4D"/></radialGradient></defs></svg>',
+ basket:'<svg viewBox="0 0 16 16" fill="none"><path d="M0.0391235 7.99992C0.0391235 3.60616 3.60632 0.0389557 8.00008 0.0389557C12.3938 0.0389557 15.961 3.60616 15.961 8C15.961 12.3938 12.3938 15.961 8 15.961C3.60632 15.961 0.0391235 12.3938 0.0391235 7.99992Z" fill-rule="evenodd" clip-rule="evenodd" fill="url(#bk0)"/><path d="M10.4943 6.18383C11.3169 6.90823 12.2556 7.42567 13.1799 7.65743C13.5912 7.76056 14.616 7.98832 15.96 8.08112C15.9603 8.05399 15.961 8.02711 15.961 7.99991C15.961 7.70071 15.9439 7.40535 15.9117 7.11479C14.7025 7.02287 13.7868 6.81991 13.4135 6.72631C12.6587 6.53711 11.8848 6.11367 11.1928 5.51871C10.959 5.73942 10.7262 5.96113 10.4943 6.18383Z M5.53656 11.2576C6.1116 11.9382 6.5208 12.6952 6.70592 13.4335C6.79912 13.8048 7 14.7111 7.09264 15.9091C7.39048 15.943 7.69312 15.961 8 15.961C8.01984 15.961 8.03952 15.9604 8.05936 15.9602C7.96576 14.6262 7.73984 13.6094 7.6372 13.2001C7.4084 12.2883 6.90128 11.3624 6.19184 10.5478C5.97224 10.7833 5.75381 11.0199 5.53656 11.2576Z M0.0391235 7.99991C0.0391235 8.29935 0.0560835 8.59455 0.0882435 8.88535C1.27216 8.97807 2.1672 9.17679 2.5436 9.27119C3.33544 9.46975 4.1488 9.92583 4.8664 10.568C5.08096 10.3338 5.298 10.0988 5.51776 9.86319C4.682 9.11287 3.722 8.57711 2.7772 8.34007C2.36256 8.23599 1.35816 8.01335 0.0400035 7.91927C0.0396835 7.94615 0.0391235 7.97303 0.0391235 7.99991Z M7.89752 0.0402357C7.99088 1.3692 8.21512 2.38096 8.31984 2.79728C8.5536 3.73024 9.07864 4.67808 9.81384 5.50632C10.0462 5.28304 10.2782 5.06224 10.5097 4.84368C9.88728 4.13664 9.4456 3.33992 9.25088 2.56368C9.15592 2.1852 8.95528 1.2816 8.86328 0.0856757C8.57657 0.0546576 8.28839 0.0390618 8 0.0389557C7.96576 0.0389557 7.93176 0.0397557 7.89752 0.0402357Z M2.10406 2.65056C3.69102 4.33064 5.46606 6.15664 7.30079 7.99696C7.52391 7.76872 7.74879 7.54088 7.97503 7.31336C6.14391 5.4768 4.37311 3.65488 2.79094 1.9796C2.54881 2.18935 2.31944 2.41341 2.10406 2.65056Z M7.97968 8.67575C9.82936 10.5201 11.6664 12.3054 13.35 13.8952C13.5872 13.6799 13.8113 13.4505 14.0209 13.2083C12.3394 11.6206 10.5031 9.83615 8.65392 7.99223C8.42752 8.21975 8.2028 8.44759 7.97968 8.67575Z M8.19248 7.0948C6.02224 9.26504 3.9756 11.4878 2.26984 13.526C2.49242 13.7567 2.72869 13.9738 2.97736 14.1762C4.6708 12.1502 6.70856 9.93648 8.87144 7.77352C10.6294 6.01552 12.3835 4.37352 14.0859 2.8932C14.0898 2.8896 14.0939 2.88616 14.0979 2.8828C13.8918 2.63725 13.671 2.40435 13.4369 2.18536C11.7239 3.67616 9.95952 5.3276 8.19248 7.0948Z" fill="#4a4f5c"/><defs><radialGradient id="bk0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(5.17008 3.9996) rotate(-90) scale(15.028 15.0278)"><stop stop-color="#FF9B82"/><stop offset="0.24" stop-color="#FF6D49"/><stop offset="0.56" stop-color="#E35734"/><stop offset="0.72" stop-color="#B84629"/><stop offset="0.85" stop-color="#FF6D49"/></radialGradient></defs></svg>'
+};
+
+// ---------- data (matches the Figma prototype content) ----------
+const M=(t1,t2,time,o,extra={})=>({t1,t2,time,o,...extra});
+const SPORTS={
+  football:{label:'Fotbal',icon:'football',markets:[
+      {id:'mw',label:'Match Winner',cols:['1','X','2']},
+      {id:'btts',label:'Both Teams to Score',cols:['Yes','No']},
+      {id:'sot',label:'Shots On Target',cols:['Over 2.5']}],
+    leagues:[
+    {id:'pl',name:'England • Premier League',total:6,matches:[
+      M('Arsenal','Tottenham','45’',[1.85,3.40,4.20],{live:true,s:[1,0],more:87}),
+      M('Liverpool','West Ham','63’',[2.10,3.25,3.50],{live:true,s:[2,2],more:84,chg:[0,0,'up']}),
+      M('Chelsea','Man United','15:30',[1.95,3.50,3.90],{more:92}),
+      M('Newcastle','Aston Villa','18:00',[2.25,3.40,3.10],{more:88})]},
+    {id:'cl',name:'Europe • Champions League',total:7,matches:[
+      M('Real Madrid','Bayern München','15:30',[1.45,4.50,6.80],{more:92,chg:[0,'down',0]}),
+      M('Paris SG','Borussia Dortmund','18:00',[0,0,0],{more:90,locked:true}),
+      M('Man City','Inter','21:00',[1.70,3.90,4.80],{more:110}),
+      M('Barcelona','Benfica','21:00',[1.55,4.20,5.60],{more:104})]},
+    {id:'sa',name:'Italy • Serie A',total:8,matches:[
+      M('Inter','AC Milan','14:00',[1.95,3.60,3.80],{more:121,chg:['split-up',0,0],prev:[1.80]}),
+      M('Napoli','Juventus','20:45',[2.60,3.30,2.70],{more:112,chg:[0,0,'split-down'],prev:[0,0,2.90]}),
+      M('AS Roma','Lazio','18:00',[2.40,3.20,3.00],{more:98}),
+      M('Atalanta','Fiorentina','15:00',[1.90,3.60,4.00],{more:87})]},
+    {id:'ll',name:'Spain • LaLiga',total:5,matches:[
+      M('Real Betis','Sevilla','16:15',[1.95,3.60,3.80],{more:121,chg:['split-up',0,0],prev:[1.80]}),
+      M('Villarreal','Valencia','18:30',[2.60,3.30,1.85],{more:112,chg:[0,0,'split-down'],prev:[0,0,1.70]}),
+      M('Atlético Madrid','Girona','21:00',[1.60,3.90,5.40],{more:101})]},
+    {id:'bl',name:'Germany • Bundesliga',total:9,matches:[
+      M('Bayern München','Dortmund','15:30',[1.95,3.60,3.80],{more:121,chg:['split-up',0,0],prev:[1.80]}),
+      M('RB Leipzig','Leverkusen','17:30',[2.60,3.30,1.85],{more:112,chg:[0,0,'split-down'],prev:[0,0,1.70]}),
+      M('Stuttgart','Frankfurt','15:30',[2.10,3.50,3.30],{more:90})]},
+    {id:'l1',name:'France • Ligue 1',total:6,matches:[
+      M('Paris SG','Marseille','21:00',[1.50,4.40,6.00],{more:118}),
+      M('Lyon','Monaco','17:00',[2.40,3.50,2.80],{more:96}),
+      M('Lille','Nice','15:00',[2.10,3.30,3.50],{more:88})]},
+    {id:'ed',name:'Netherlands • Eredivisie',total:5,matches:[
+      M('Ajax','PSV','14:30',[2.55,3.60,2.60],{more:104}),
+      M('Feyenoord','AZ Alkmaar','16:45',[1.75,3.90,4.30],{more:92}),
+      M('Twente','Utrecht','20:00',[1.95,3.60,3.70],{more:80})]},
+    {id:'pt',name:'Portugal • Primeira Liga',total:4,matches:[
+      M('Benfica','Porto','20:30',[2.20,3.30,3.20],{more:110}),
+      M('Sporting CP','Braga','18:00',[1.65,3.90,5.00],{more:98}),
+      M('Vitória SC','Boavista','16:00',[1.85,3.40,4.40],{more:76})]}
+  ]},
+  tennis:{label:'Tenis',icon:'tennis',markets:[{id:'mw',label:'Match Winner',cols:['1','2']},{id:'set',label:'Set Betting',cols:['1','2']},{id:'tg',label:'Total Games',cols:['Over']}],
+    leagues:[
+    {id:'atpr',name:'ATP • Rome, Italy • Singles',total:6,matches:[
+      M('J. Sinner','A. Zverev','Set 3',[1.36,3.10],{live:true,sets:['0 0 40','0 0 15'],serve:0,more:87,chg:['up',0]}),
+      M('F. Auger-Aliassime','D. Shapovalov','Set 2',[2.45,1.55],{live:true,sets:['1 3 30','0 4 15'],serve:0,more:84,chg:[0,'down']}),
+      M('C. Alcaraz','B. Shelton','15:30',[1.90,1.90],{more:92}),
+      M('D. Medvedev','H. Hurkacz','17:00',[1.70,2.15],{more:80})]},
+    {id:'atpm',name:'ATP • Madrid, Spain • Singles',total:7,matches:[
+      M('M. Berrettini','T. Fritz','15:30',[1.75,2.05],{more:90}),
+      M('A. Davidovich Fokina','F. Tiafoe','12:00',[0,0],{locked:true,more:121}),
+      M('L. Musetti','A. Zverev','14:30',[1.62,2.30],{more:112})]}
+  ]},
+  hockey:{label:'Hokej',icon:'hockey',markets:[{id:'mw',label:'Match Winner',cols:['1','X','2']}],leagues:[]},
+  basket:{label:'Basketbal',icon:'basket',markets:[{id:'mw',label:'Match Winner',cols:['1','2']}],leagues:[]}
+};
+const ODDS_W={3:132,2:104,1:96};
+
+const st={sport:'football',market:'mw',liveOnly:false,compact:true,pinned:null,expanded:{},sel:new Set(),fav:new Set(),tab:'home'};
+const $=s=>document.querySelector(s);
+const fmt=v=>v.toFixed(2);
+function oddsFor(m,market){
+  if(market.id==='mw'||st.sport==='tennis') return m.o.slice(0,market.cols.length);
+  const seed=(m.t1.length*7+m.t2.length*3)%10/20;
+  if(market.id==='btts') return [1.55+seed,2.20-seed*0.8];
+  return [1.65+seed];
+}
+function render(){
+  const sp=SPORTS[st.sport];
+  $('#sports').innerHTML=['football','hockey','tennis','basket'].map(k=>[k,SPORTS[k]]).map(([k,s])=>`<button class="chip" data-sport="${k}" aria-pressed="${k===st.sport}">${ICON[s.icon]}${s.label}</button>`).join('');
+  const market=sp.markets.find(x=>x.id===st.market)||sp.markets[0]; st.market=market.id;
+  const cols=market.cols; document.documentElement.style.setProperty('--odds-w',ODDS_W[cols.length]+'px');
+  const marketRow=`<div class="market"><div class="fixed"><button class="chip live" data-live aria-pressed="${st.liveOnly}">${ICON.live}Live</button><span class="vline"></span></div><div class="chips">${sp.markets.map(x=>`<button class="chip" data-market="${x.id}" aria-pressed="${x.id===st.market}">${x.label}</button>`).join('')}</div></div>`;
+  if(!st.compact){ $('#list').innerHTML=`<div class="cards"><img src="assets/card-view.png" alt="Card view"></div>`; return; }
+  let leagues=sp.leagues.slice();
+  if(st.pinned){ const i=leagues.findIndex(l=>l.id===st.pinned); if(i>0) leagues.unshift(leagues.splice(i,1)[0]); }
+  leagues=leagues.map(l=>({...l,matches:l.matches.filter(m=>!st.liveOnly||m.live)})).filter(l=>l.matches.length);
+  if(!leagues.length){ $('#list').innerHTML=`<div class="table">${marketRow}<div class="empty">No ${st.liveOnly?'live ':''}events for ${sp.label} right now.</div></div>`; return; }
+  const pinBtn=l=>`<button class="pin" data-pin="${l.id}" aria-pressed="${st.pinned===l.id}" aria-label="Pin ${l.name}">${st.pinned===l.id?ICON.pinOn:ICON.pinOff}</button>`;
+  const first=leagues[0];
+  $('#list').innerHTML=`<div class="table">${marketRow}
+    <div class="lh bar" id="bar"><span class="name">${first.name}</span><span class="labels">${cols.map(c=>`<span>${c}</span>`).join('')}</span>${pinBtn(first)}</div>`+leagues.map((l,li)=>{
+    const open=!!st.expanded[l.id]; const show=open?l.matches:l.matches.slice(0,2);
+    return `<section class="league" data-league="${l.id}">
+      ${li>0?`<div class="lh"><span class="name">${l.name}</span>${pinBtn(l)}</div>`:''}
+      ${show.map(m=>rowHTML(l,m,market,cols)).join('')}
+      ${l.matches.length>2?`<button class="more" data-more="${l.id}" aria-expanded="${open}">${open?'Show less':`More events (${l.total})`}${ICON.chev}</button>`:`<div style="height:8px"></div>`}
+    </section>`;}).join('')+`</div>`;
+}
+function oddBtn(l,m,i,v){
+  if(m.locked) return `<span class="odd locked">${ICON.lock}</span>`;
+  const key=`${st.sport}|${st.market}|${l.id}|${m.t1}|${i}`;
+  const chg=(st.market==='mw'&&m.chg&&m.chg[i])||0; const prev=st.market==='mw'&&m.prev&&m.prev[i];
+  const top=chg==='up'?ICON.up:chg==='split-up'?ICON.splitUp:''; const bot=chg==='down'?ICON.down:chg==='split-down'?ICON.splitDown:'';
+  return `<button class="odd ${chg||''}" data-odd="${key}" aria-pressed="${st.sel.has(key)}">${top}${chg==='split-down'&&prev?`<span class="prev">${fmt(prev)}</span>`:''}<span class="v">${fmt(v)}</span>${chg==='split-up'&&prev?`<span class="prev">${fmt(prev)}</span>`:''}${bot}</button>`;
+}
+function rowHTML(l,m,market,cols){
+  const o=oddsFor(m,market); const fk=`${st.sport}|${m.t1}|${m.t2}`;
+  const score=i=>m.sets?`<span class="s sets">${m.sets[i]}</span>`:(m.live&&m.s?`<span class="s">${m.s[i]}</span>`:'');
+  return `<div class="row"><div class="content">
+    <div class="ev"><div class="tcol">${ICON.stream}<span class="t ${m.live?'live':''}">${m.time}</span></div>
+      <div class="teams"><div class="team"><span class="n">${m.t1}</span>${m.serve===0?'<span class="serve"></span>':''}${score(0)}</div>
+        <div class="team"><span class="n">${m.t2}</span>${m.serve===1?'<span class="serve"></span>':''}${score(1)}</div></div></div>
+    <div class="vdiv"></div>
+    <div class="odds">${cols.map((c,i)=>oddBtn(l,m,i,o[i]??0)).join('')}</div>
+    <div class="meta"><button class="star" data-fav="${fk}" aria-pressed="${st.fav.has(fk)}" aria-label="Favourite">${st.fav.has(fk)?ICON.starOn:ICON.starOff}</button><span class="pill">+${m.more}</span></div>
+  </div><div class="sep"></div></div>`;
+}
+function toast(msg,icon){ const t=$('#toast'); $('#toastText').textContent=msg; $('#toastIcon').innerHTML=icon||''; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function scroller(){ return matchMedia('(min-width:600px)').matches?$('#scroller'):document.scrollingElement; }
+function scrollToList(){ const sc=scroller(); const base=sc===document.scrollingElement?0:sc.getBoundingClientRect().top; const top=$('#list').getBoundingClientRect().top-base+sc.scrollTop-160; sc.scrollTo({top:Math.max(0,top),behavior:'smooth'}); }
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.sport){ st.sport=b.dataset.sport; st.market='mw'; st.expanded={}; st.pinned=null; render(); return; }
+  if(b.dataset.market){ st.market=b.dataset.market; render(); return; }
+  if('live' in b.dataset){ st.liveOnly=!st.liveOnly; render(); return; }
+  if(b.dataset.odd){ const k=b.dataset.odd; st.sel.has(k)?st.sel.delete(k):st.sel.add(k); b.setAttribute('aria-pressed',st.sel.has(k)); return; }
+  if(b.dataset.fav){ const k=b.dataset.fav; const on=!st.fav.has(k); on?st.fav.add(k):st.fav.delete(k); b.setAttribute('aria-pressed',on); b.innerHTML=on?ICON.starOn:ICON.starOff; return; }
+  if(b.dataset.pin){ const id=b.dataset.pin; const lg=SPORTS[st.sport].leagues.find(l=>l.id===id); const p=lg.name.split(' • '); const name=/^(ATP|WTA)$/.test(p[0])?p[0]+' '+p[1].split(',')[0]:p[p.length-1];
+    if(st.pinned===id){ st.pinned=null; render(); toast(`${name} unpinned`,ICON.pinOff); } else { st.pinned=id; render(); toast(`${name} pinned to the top`,ICON.pinOn); scrollToList(); } return; }
+  if(b.dataset.more){ const id=b.dataset.more; st.expanded[id]=!st.expanded[id]; render(); return; }
+  if(b.id==='compact'){ st.compact=!st.compact; b.setAttribute('aria-checked',st.compact); render(); return; }
+  if(b.dataset.tab){ const t=b.dataset.tab; if(t==='home'||t==='live'){ st.tab=t; st.liveOnly=(t==='live'); $('#navImg').src=`assets/nav-${t}.png`; render(); scroller().scrollTo({top:0}); } else { toast(`${b.getAttribute('aria-label')} isn't part of this prototype`); } return; }
+});
+// The design is 375 wide. Zoom it to the device width:
+// phone = the real screen width; desktop = an iPhone 16 (393×852 pt), scaled down only on short windows.
+function fitPhone(){
+  const p=$('.phone'), d=$('#device'), desk=matchMedia('(min-width:600px)').matches;
+  const k=(desk?393:window.innerWidth)/375;
+  p.style.zoom=k; document.documentElement.style.setProperty('--k',k);
+  d.style.zoom=desk?Math.min(1,(window.innerHeight-56)/852):'';
+}
+addEventListener('resize',fitPhone); fitPhone();
+
+// Sticky header row: keep 1 X 2, swap the league name (and its pin) to the competition the user is in.
+function updateBar(){
+  const bar=$('#bar'); if(!bar) return;
+  const barR=bar.getBoundingClientRect(); let cur=null;
+  for(const s of document.querySelectorAll('#list .league')){ if(s.getBoundingClientRect().top <= barR.top + barR.height/2) cur=s; else break; }
+  if(!cur) cur=document.querySelector('#list .league'); if(!cur) return;
+  const id=cur.dataset.league; if(bar.dataset.cur===id) return; bar.dataset.cur=id;
+  const lg=SPORTS[st.sport].leagues.find(l=>l.id===id);
+  bar.querySelector('.name').textContent=lg.name;
+  const p=bar.querySelector('.pin'); p.dataset.pin=id; p.setAttribute('aria-pressed',st.pinned===id); p.setAttribute('aria-label','Pin '+lg.name); p.innerHTML=st.pinned===id?ICON.pinOn:ICON.pinOff;
+}
+const _render=render; render=function(){ _render(); updateBar(); };
+addEventListener('scroll',updateBar,{passive:true});
+$('#scroller').addEventListener('scroll',updateBar,{passive:true});
+$('#navHits').innerHTML=['Home','Live','Sport','Tickets','Casino','Menu'].map(l=>`<button data-tab="${l.toLowerCase()}" aria-label="${l}"></button>`).join('');
+render();
+</script>
+</body>
+</html>
